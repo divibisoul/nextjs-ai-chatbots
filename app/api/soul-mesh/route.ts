@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { handleMeshMessage } from '@/lib/soul-mesh/endpoint';
+import { NUCLEUS_02_MESH_HANDLERS } from '@/lib/soul-mesh/Nucleus02MeshHandlers';
 import type { SoulMeshMessage } from '@/lib/soul-mesh/SoulMeshProtocol';
 
 function authorized(request: Request): boolean {
@@ -7,11 +9,16 @@ function authorized(request: Request): boolean {
 }
 
 export async function POST(request: Request) {
-  if (!authorized(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const message = (await request.json()) as SoulMeshMessage;
-  if (message.protocol !== 'soul-mesh/1' || message.target !== 'chatbots') return NextResponse.json({ error: 'Invalid Soul Mesh message' }, { status: 400 });
-  if (message.kind === 'response' || message.kind === 'error' || message.kind === 'event') return NextResponse.json({ accepted: true, correlationId: message.correlationId, source: message.source, target: message.target });
-  if (message.kind !== 'request') return NextResponse.json({ error: 'Unsupported Soul Mesh message' }, { status: 400 });
-  const response: SoulMeshMessage = { protocol: 'soul-mesh/1', id: crypto.randomUUID(), correlationId: message.correlationId, source: 'chatbots', target: message.source, kind: 'response', capability: message.capability, payload: { nucleus: 'chatbots', capability: message.capability, processed: true, payload: message.payload }, timestamp: Date.now() };
-  return NextResponse.json(response);
+  if (!authorized(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const message = (await request.json()) as SoulMeshMessage;
+    const response = await handleMeshMessage(message, NUCLEUS_02_MESH_HANDLERS);
+    return NextResponse.json(response);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'Unknown mesh error';
+    return NextResponse.json({ error: detail }, { status: 400 });
+  }
 }
