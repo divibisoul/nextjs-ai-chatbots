@@ -1,8 +1,8 @@
 export type SoulNucleus = 'N01' | 'N02' | 'N03' | 'N04' | 'N05' | 'N06';
-export type SoulMeshKind = 'request' | 'response' | 'event' | 'error';
+export type SoulMeshKind = 'request' | 'response' | 'event' | 'error' | 'ack';
 
 const NUCLEI = new Set<SoulNucleus>(['N01', 'N02', 'N03', 'N04', 'N05', 'N06']);
-const KINDS = new Set<SoulMeshKind>(['request', 'response', 'event', 'error']);
+const KINDS = new Set<SoulMeshKind>(['request', 'response', 'event', 'error', 'ack']);
 
 export interface SoulMeshMessage<T = unknown> {
   protocol: 'soul-mesh/1';
