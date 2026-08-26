@@ -61,5 +61,13 @@ export async function sendTo(target: N04Peer, capability: string, payload: unkno
   } finally { clearTimeout(timer); }
 }
 
+export function isN01Capability(capability: string): capability is N01Capability {
+  return (N01_CAPABILITIES as readonly string[]).includes(capability);
+}
+
+export async function sendToN01(capability: N01Capability, payload: unknown, timeoutMs = 15000): Promise<SoulMeshMessage> {
+  return sendTo('N01', capability, payload, timeoutMs);
+}
+
 export const N04_OUT_CHANNELS = PEERS.map((peer) => `N04.OUT.${peer}`);
 export const N04_IN_CHANNELS = PEERS.map((peer) => `N04.IN.${peer}`);
