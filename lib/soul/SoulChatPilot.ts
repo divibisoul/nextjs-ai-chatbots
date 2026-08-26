@@ -9,13 +9,20 @@ export type SoulChatRequest = {
 export type SoulChatRoute = {
   mode: 'conversation' | 'capability';
   capability?: SoulCapabilityId;
-  provider: 'nucleus-02';
+  provider: 'nucleus-04';
 };
 
 export function routeSoulChat(request: SoulChatRequest): SoulChatRoute {
-  if (request.requestedCapability && SOUL_CAPABILITIES.some((item) => item.id === request.requestedCapability)) {
-    return { mode: 'capability', capability: request.requestedCapability, provider: 'nucleus-02' };
+  if (
+    request.requestedCapability &&
+    SOUL_CAPABILITIES.some((item) => item.id === request.requestedCapability)
+  ) {
+    return {
+      mode: 'capability',
+      capability: request.requestedCapability,
+      provider: 'nucleus-04',
+    };
   }
 
-  return { mode: 'conversation', provider: 'nucleus-02' };
+  return { mode: 'conversation', provider: 'nucleus-04' };
 }

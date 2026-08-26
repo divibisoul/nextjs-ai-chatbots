@@ -22,7 +22,7 @@ import { generateTitleFromUserMessage } from '../../actions';
 import { isProductionEnvironment } from '@/lib/constants';
 import { myProvider } from '@/lib/ai/providers';
 import { entitlementsByUserType } from '@/lib/ai/entitlements';
-import { createNucleus04Tools } from '@/lib/soul-core/Nucleus04ToolRegistry';
+import { createNucleus04Runtime } from '@/lib/soul-core/Nucleus04Runtime';
 import { postRequestBodySchema, type PostRequestBody } from './schema';
 import { geolocation } from '@vercel/functions';
 import {
@@ -124,7 +124,8 @@ export async function POST(request: Request) {
 
     const stream = createUIMessageStream({
       execute: ({ writer: dataStream }) => {
-        const nucleus04Tools = createNucleus04Tools({ session, dataStream });
+        const nucleus04Runtime = createNucleus04Runtime({ session, dataStream });
+        const nucleus04Tools = nucleus04Runtime.tools;
         const result = streamText({
           model: myProvider.languageModel(selectedChatModel),
           system: systemPrompt({ selectedChatModel, requestHints }),

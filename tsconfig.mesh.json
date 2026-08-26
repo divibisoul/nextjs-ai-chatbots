@@ -1,4 +1,25 @@
 {
-  "compilerOptions": { "target": "ES2022", "module": "ESNext", "moduleResolution": "Bundler", "strict": true, "skipLibCheck": true, "noEmit": true },
-  "include": ["src/soul-mesh/endpoint.ts"]
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": { "@/*": ["./*"] },
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"]
+  },
+  "include": [
+    "src/soul-mesh/**/*.ts",
+    "lib/soul-core/Nucleus04Capabilities.ts",
+    "lib/soul-core/Nucleus04Processor.ts",
+    "lib/soul-core/Nucleus04Runtime.ts",
+    "lib/soul-core/Nucleus04ToolRegistry.ts",
+    "lib/soul-core/Nucleus04MeshRuntime.ts",
+    "lib/soul-mesh/**/*.ts",
+    "lib/soul/**/*.ts"
+  ],
+  "exclude": ["**/*.test.ts"]
 }

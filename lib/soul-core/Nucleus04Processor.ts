@@ -32,9 +32,8 @@ export type Nucleus04CapabilityHandler = (
 ) => Promise<unknown>;
 
 /**
- * Runtime boundary for Nucleus 04. Existing AI tools, artifacts and document
- * handlers attach through capability handlers. The processor does not own an
- * AI provider: a user-selected pilot can be registered at runtime.
+ * Runtime boundary for Nucleus 04. The processor is provider-neutral: AI
+ * providers, tools and Mesh transports attach through explicit adapters.
  */
 export class Nucleus04Processor {
   readonly id = 'nucleus-04' as const;
@@ -57,7 +56,7 @@ export class Nucleus04Processor {
   }
 
   supports(capability: string): capability is Nucleus04Capability {
-    return this.capabilities.some((item) => item.id === capability);
+    return (this.capabilities as readonly string[]).includes(capability);
   }
 
   async execute(request: Nucleus04Request, context?: Nucleus04Context) {
@@ -93,4 +92,5 @@ export class Nucleus04Processor {
   }
 }
 
+/** Backwards-compatible process instance for local consumers. */
 export const nucleus04Processor = new Nucleus04Processor();
