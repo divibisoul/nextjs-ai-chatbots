@@ -18,11 +18,30 @@ function assertResponse(request: SoulMeshMessage, response: unknown): asserts re
   const candidate = response as SoulMeshMessage;
   if (candidate.protocol !== request.protocol) throw new Error('SOUL_MESH_PROTOCOL_MISMATCH');
   if (candidate.correlationId !== request.correlationId) throw new Error('SOUL_MESH_CORRELATION_MISMATCH');
-  if (candidate.source !== request.target || candidate.target !== request.source) {
-    throw new Error('SOUL_MESH_ROUTE_MISMATCH');
-  }
-  if (candidate.kind !== 'response' && candidate.kind !== 'error') {
-    throw new Error('SOUL_MESH_INVALID_RESPONSE_KIND');
+  if (candidate.source !== request.target || candidate.target !== request.source) throw new Error('SOUL_MESH_ROUTE_MISMATCH');
+  if (candidate.kind !== 'response' && candidate.kind !== 'error') throw new Error('SOUL_MESH_INVALID_RESPONSE_KIND');
+}
+
+function retryable(status: number): boolean {
+  return status === 408 || status === 425 || status === 429 || status >= 500;
+}
+
+async function attempt(url: string, message: SoulMeshMessage, timeoutMs: number): Promise<{ response: Response; body: unknown }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const token = process.env.SOUL_MESH_TOKEN;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(message),
+      signal: controller.signal,
+    });
+    let body: unknown;
+    try { body = await response.json(); } catch { throw new Error('SOUL_MESH_INVALID_JSON'); }
+    return { response, body };
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -31,53 +50,41 @@ export async function sendTo(
   capability: string,
   payload: unknown,
   timeoutMs = 15000,
+  maxAttempts = 2,
 ): Promise<SoulMeshMessage> {
   const url = urls[target];
   if (!url) throw new Error(`SOUL_MESH_PEER_URL_NOT_CONFIGURED:${target}`);
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error('SOUL_MESH_INVALID_TIMEOUT');
+  if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 3) throw new Error('SOUL_MESH_INVALID_ATTEMPTS');
 
-  const correlationId = randomUUID();
   const message: SoulMeshMessage = {
-    protocol: 'soul-mesh/1',
-    id: randomUUID(),
-    correlationId,
-    source: NUCLEUS_ID,
-    target,
-    kind: 'request',
-    capability,
-    payload,
-    timestamp: Date.now(),
+    protocol: 'soul-mesh/1', id: randomUUID(), correlationId: randomUUID(), source: NUCLEUS_ID,
+    target, kind: 'request', capability, payload, timestamp: Date.now(),
   };
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const token = process.env.SOUL_MESH_TOKEN;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        ...(token ? { authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify(message),
-      signal: controller.signal,
-    });
-
-    let body: unknown;
+  let lastError: unknown;
+  for (let attemptNumber = 1; attemptNumber <= maxAttempts; attemptNumber += 1) {
     try {
-      body = await response.json();
-    } catch {
-      throw new Error(`SOUL_MESH_INVALID_JSON:${target}`);
+      const { response, body } = await attempt(url, message, timeoutMs);
+      assertResponse(message, body);
+      if (!response.ok || body.kind === 'error') {
+        if (attemptNumber < maxAttempts && retryable(response.status)) {
+          await new Promise((resolve) => setTimeout(resolve, 150 * 2 ** (attemptNumber - 1)));
+          continue;
+        }
+        throw new Error(`SOUL_MESH_REMOTE_ERROR:${target}:${response.status}`);
+      }
+      return body;
+    } catch (error) {
+      lastError = error;
+      if (attemptNumber < maxAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, 150 * 2 ** (attemptNumber - 1)));
+        continue;
+      }
     }
-
-    assertResponse(message, body);
-    if (!response.ok || body.kind === 'error') {
-      throw new Error(`SOUL_MESH_REMOTE_ERROR:${target}`);
-    }
-    return body;
-  } finally {
-    clearTimeout(timer);
   }
+
+  throw lastError instanceof Error ? lastError : new Error(`SOUL_MESH_REQUEST_FAILED:${target}`);
 }
 
 export const N04_OUT_CHANNELS = PEERS.map((peer) => `N04.OUT.${peer}`);
