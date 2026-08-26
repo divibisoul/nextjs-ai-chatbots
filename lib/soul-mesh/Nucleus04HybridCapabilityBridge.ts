@@ -2,8 +2,8 @@ import type { Nucleus04Capability } from '../soul-core/Nucleus04Capabilities';
 import { nucleus04Processor } from '../soul-core/Nucleus04Processor';
 
 /**
- * Adapter layer between N04's existing AI/tools and the canonical Soul Mesh.
- * It deliberately does not replace local tools; it exposes them as handlers.
+ * Adapter between N04's existing AI/tools and the canonical Soul Mesh.
+ * It does not replace local tools; it exposes explicitly registered runtimes.
  */
 export interface N04CapabilityRuntime {
   execute(capability: Nucleus04Capability, input: unknown): Promise<unknown>;
@@ -11,15 +11,17 @@ export interface N04CapabilityRuntime {
 
 export class Nucleus04HybridCapabilityBridge {
   private readonly runtime: N04CapabilityRuntime;
+  private readonly registered = new Set<Nucleus04Capability>();
 
   constructor(runtime: N04CapabilityRuntime) {
     this.runtime = runtime;
   }
 
-  register(capability: Nucleus04Capability) {
+  register(capability: Exclude<Nucleus04Capability, 'ai-pilot'>) {
     nucleus04Processor.registerHandler(capability, (input) =>
       this.runtime.execute(capability, input),
     );
+    this.registered.add(capability);
     return this;
   }
 
@@ -31,8 +33,8 @@ export class Nucleus04HybridCapabilityBridge {
   }
 
   executableCapabilities() {
-    return nucleus04Processor.capabilities.filter((capability) =>
-      capability === 'ai-pilot' || nucleus04Processor.supports(capability),
+    return nucleus04Processor.capabilities.filter(
+      (capability) => capability === 'ai-pilot' || this.registered.has(capability),
     );
   }
 }
