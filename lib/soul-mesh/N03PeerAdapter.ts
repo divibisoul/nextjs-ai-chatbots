@@ -1,12 +1,7 @@
 import { sendTo } from './peer-client';
 import type { SoulMeshMessage } from './SoulMeshProtocol';
 
-/**
- * N04-side adapter for the N03 nucleus.
- *
- * N01 remains the canonical protocol reference; this adapter is deliberately
- * thin and maps N04's provider-neutral runtime to N03's real HTTP Mesh peer.
- */
+/** N04-side interoperability adapter for the independent N03 AI. */
 export const N03_CAPABILITIES = [
   'mesh.ping',
   'mesh.describe',
@@ -44,6 +39,26 @@ export async function invokeN03(
   timeoutMs = 30000,
 ): Promise<SoulMeshMessage> {
   return sendTo('N03', capability, payload, timeoutMs);
+}
+
+/**
+ * Performs protocol-level recognition without claiming live connectivity.
+ * It establishes the information required for N04 to route to N03 when the
+ * deployment endpoint is available: identity, description and capabilities.
+ */
+export async function recognizeN03(timeoutMs = 5000) {
+  const [description, capabilities] = await Promise.all([
+    describeN03(timeoutMs),
+    listN03Capabilities(timeoutMs),
+  ]);
+
+  return {
+    nucleus: 'N03' as const,
+    protocol: 'soul-mesh/1' as const,
+    recognized: description.source === 'N03' && description.target === 'N04',
+    description,
+    capabilities,
+  };
 }
 
 export async function healthN03(timeoutMs = 5000) {
