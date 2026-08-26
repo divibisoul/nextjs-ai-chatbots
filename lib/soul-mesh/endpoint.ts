@@ -1,29 +1,31 @@
-export const NUCLEUS_ID = 'N02' as const;
-export const SOUL_MESH_PROTOCOL = 'soul-mesh/1' as const;
+import type { SoulMeshMessage } from './SoulMeshProtocol';
 
-export type SoulMeshMessage = {
-  protocol: string; id: string; correlationId: string; source: string; target: string;
-  kind: 'request' | 'response' | 'event' | 'error' | 'ack'; capability: string;
-  payload: unknown; timestamp: string;
-};
-
-const nuclei = new Set(['N01','N02','N03','N04','N05','N06']);
+export const NUCLEUS_ID = 'N04' as const;
+const NUCLEI = new Set(['N01', 'N02', 'N03', 'N04', 'N05', 'N06']);
 
 export function validateMeshMessage(m: SoulMeshMessage) {
-  if (m.protocol !== SOUL_MESH_PROTOCOL) throw new Error('UNSUPPORTED_MESH_PROTOCOL');
+  if (m.protocol !== 'soul-mesh/1') throw new Error('UNSUPPORTED_MESH_PROTOCOL');
   if (!m.id || !m.correlationId) throw new Error('MISSING_MESSAGE_ID');
-  if (!nuclei.has(m.source) || !nuclei.has(m.target) || m.source === m.target) throw new Error('INVALID_NUCLEUS_ROUTE');
+  if (!NUCLEI.has(m.source) || !NUCLEI.has(m.target) || m.source === m.target) throw new Error('INVALID_NUCLEUS_ROUTE');
+  if (m.target !== NUCLEUS_ID) throw new Error('WRONG_TARGET');
   if (!m.capability && m.kind !== 'event') throw new Error('MISSING_CAPABILITY');
+  if (!Number.isFinite(m.timestamp)) throw new Error('INVALID_TIMESTAMP');
   return true;
 }
 
-/** Runtime endpoint adapter. Capability handlers remain local to this nucleus. */
-export async function handleMeshMessage(message: SoulMeshMessage, handlers: Record<string,(payload: unknown)=>Promise<unknown>|unknown>) {
+function result(message: SoulMeshMessage, payload: unknown, kind: SoulMeshMessage['kind'] = 'response'): SoulMeshMessage {
+  return { protocol: 'soul-mesh/1', id: crypto.randomUUID(), correlationId: message.correlationId, source: NUCLEUS_ID, target: message.source, kind, capability: message.capability, payload, timestamp: Date.now() };
+}
+
+/** N04 runtime dispatcher. New local capabilities can be registered without replacing the Mesh contract. */
+export async function handleMeshMessage(message: SoulMeshMessage, handlers: Record<string, (payload: unknown) => Promise<unknown> | unknown> = {}) {
   validateMeshMessage(message);
-  if (message.target !== NUCLEUS_ID) throw new Error('WRONG_TARGET');
   if (message.kind !== 'request') return message;
-  const handler = handlers[message.capability];
-  if (!handler) return { ...message, kind: 'error', payload: { code: 'CAPABILITY_NOT_FOUND' } };
-  try { return { ...message, kind: 'response', payload: await handler(message.payload) }; }
-  catch (error) { return { ...message, kind: 'error', payload: { code: 'CAPABILITY_EXECUTION_ERROR', detail: error instanceof Error ? error.message : 'Unknown error' } }; }
+  if (message.capability === 'mesh.ping') return result(message, { ok: true, nucleus: NUCLEUS_ID, handler: 'N04.mesh.ping', echoed: message.payload, processedAt: Date.now() });
+  if (message.capability === 'mesh.describe') return result(message, { nucleus: NUCLEUS_ID, protocol: 'soul-mesh/1', capabilities: ['mesh.ping', 'mesh.describe', 'core.health'], status: 'online' });
+  if (message.capability === 'core.health') return result(message, { ok: true, nucleus: NUCLEUS_ID, runtime: 'nextjs-ai-chatbots', timestamp: Date.now() });
+  const handler = handlers[message.capability ?? ''];
+  if (!handler) return result(message, { code: 'CAPABILITY_HANDLER_NOT_REGISTERED', nucleus: NUCLEUS_ID, capability: message.capability }, 'error');
+  try { return result(message, await handler(message.payload)); }
+  catch (error) { return result(message, { code: 'CAPABILITY_EXECUTION_ERROR', nucleus: NUCLEUS_ID, detail: error instanceof Error ? error.message : 'Unknown error' }, 'error'); }
 }
