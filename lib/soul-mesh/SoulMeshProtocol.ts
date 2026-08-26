@@ -1,4 +1,8 @@
 export type SoulNucleus = 'N01' | 'N02' | 'N03' | 'N04' | 'N05' | 'N06';
+export type SoulMeshKind = 'request' | 'response' | 'event' | 'error' | 'ack';
+
+const NUCLEI = new Set<SoulNucleus>(['N01', 'N02', 'N03', 'N04', 'N05', 'N06']);
+const KINDS = new Set<SoulMeshKind>(['request', 'response', 'event', 'error', 'ack']);
 
 export interface SoulMeshMessage<T = unknown> {
   protocol: 'soul-mesh/1';
@@ -6,7 +10,7 @@ export interface SoulMeshMessage<T = unknown> {
   correlationId: string;
   source: SoulNucleus;
   target: SoulNucleus;
-  kind: 'request' | 'response' | 'event' | 'error';
+  kind: SoulMeshKind;
   capability?: string;
   payload: T;
   timestamp: number;
@@ -22,7 +26,15 @@ export function createSoulMeshMessage<T>(input: Omit<SoulMeshMessage<T>, 'protoc
 }
 
 export function isSoulMeshMessage(value: unknown): value is SoulMeshMessage {
-  if (!value || typeof value !== 'object') return false;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const m = value as Record<string, unknown>;
-  return m.protocol === 'soul-mesh/1' && typeof m.id === 'string' && typeof m.correlationId === 'string' && typeof m.source === 'string' && typeof m.target === 'string' && typeof m.kind === 'string';
+  if (m.protocol !== 'soul-mesh/1') return false;
+  if (typeof m.id !== 'string' || m.id.length < 8 || m.id.length > 200) return false;
+  if (typeof m.correlationId !== 'string' || m.correlationId.length < 8 || m.correlationId.length > 200) return false;
+  if (typeof m.source !== 'string' || !NUCLEI.has(m.source as SoulNucleus)) return false;
+  if (typeof m.target !== 'string' || !NUCLEI.has(m.target as SoulNucleus)) return false;
+  if (m.source === m.target) return false;
+  if (typeof m.kind !== 'string' || !KINDS.has(m.kind as SoulMeshKind)) return false;
+  if (m.kind !== 'event' && (typeof m.capability !== 'string' || !m.capability.trim())) return false;
+  return Number.isFinite(m.timestamp) && m.timestamp > 0 && 'payload' in m;
 }
