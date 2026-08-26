@@ -8,13 +8,14 @@ import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
 import type { ChatMessage } from '@/lib/types';
 import { chatModels } from '@/lib/ai/models';
 import { SOUL_MESH_CAPABILITIES } from '@/lib/soul-mesh/SoulMeshCapabilities';
-import { sendTo, N04_IN_CHANNELS, N04_OUT_CHANNELS } from '@/lib/soul-mesh/peer-client';
+import { sendTo, N04_IN_CHANNELS, N04_OUT_CHANNELS, type N04Peer } from '@/lib/soul-mesh/peer-client';
 
 export type Nucleus04MeshRuntimeOptions = {
   session?: Session | null;
 };
 
 type ToolId = 'createDocument' | 'updateDocument' | 'getWeather' | 'requestSuggestions';
+type ChatModelId = 'chat-model' | 'chat-model-reasoning';
 
 type ToolRequest = {
   tool: ToolId;
@@ -31,7 +32,9 @@ const NOOP_DATA_STREAM = {
   write: () => undefined,
 } as unknown as UIMessageStreamWriter<ChatMessage>;
 
-const AVAILABLE_MODELS = new Set(chatModels.map((model) => model.id));
+function isChatModelId(value: string): value is ChatModelId {
+  return value === 'chat-model' || value === 'chat-model-reasoning';
+}
 
 function assertObject(value: unknown, name: string): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -46,7 +49,7 @@ function requireSession(session?: Session | null): Session {
 }
 
 export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOptions = {}) {
-  const tools = session
+  const tools: Partial<Record<ToolId, { execute: (args: unknown) => unknown | Promise<unknown> }>> = session
     ? {
         createDocument: createDocument({ session, dataStream: NOOP_DATA_STREAM }),
         updateDocument: updateDocument({ session, dataStream: NOOP_DATA_STREAM }),
@@ -61,21 +64,14 @@ export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOpt
       const prompt = typeof input.prompt === 'string' ? input.prompt : '';
       if (!prompt.trim()) throw new Error('AI_PILOT_PROMPT_REQUIRED');
 
-      const modelId = typeof input.model === 'string' && AVAILABLE_MODELS.has(input.model)
-        ? input.model
-        : 'chat-model';
-
+      const modelId: ChatModelId = isChatModelId(input.model ?? '') ? input.model as ChatModelId : 'chat-model';
       const result = await generateText({
         model: myProvider.languageModel(modelId),
         system: typeof input.system === 'string' ? input.system : undefined,
         prompt,
       });
 
-      return {
-        model: modelId,
-        text: result.text,
-        usage: result.usage,
-      };
+      return { model: modelId, text: result.text, usage: result.usage };
     },
 
     async conversation(payload: unknown) {
@@ -84,12 +80,11 @@ export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOpt
 
     async 'tool-execution'(payload: unknown) {
       const input = assertObject(payload, 'TOOL_EXECUTION_PAYLOAD') as unknown as ToolRequest;
-      if (typeof input.tool !== 'string') throw new Error('TOOL_ID_REQUIRED');
-
+      if (!isToolId(input.tool)) throw new Error('TOOL_ID_NOT_SUPPORTED');
       if (input.tool !== 'getWeather') requireSession(session);
-      const selected = tools[input.tool as keyof typeof tools] as { execute?: (args: unknown) => unknown | Promise<unknown> } | undefined;
-      if (!selected?.execute) throw new Error(`TOOL_NOT_AVAILABLE:${input.tool}`);
 
+      const selected = tools[input.tool];
+      if (!selected) throw new Error(`TOOL_NOT_AVAILABLE:${input.tool}`);
       return selected.execute(input.arguments);
     },
 
@@ -104,24 +99,16 @@ export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOpt
     },
 
     async 'context-orchestration'(payload: unknown) {
-      return {
-        nucleus: 'N04',
-        protocol: 'soul-mesh/1',
-        receivedAt: Date.now(),
-        context: payload,
-      };
+      return { nucleus: 'N04', protocol: 'soul-mesh/1', receivedAt: Date.now(), context: payload };
     },
 
     async 'mesh-communication'(payload: unknown) {
       const input = assertObject(payload, 'MESH_COMMUNICATION_PAYLOAD');
-      const target = input.target;
+      const target = String(input.target) as N04Peer;
       const capability = input.capability;
-      if (!['N01', 'N02', 'N03', 'N05', 'N06'].includes(String(target))) {
-        throw new Error('INVALID_MESH_PEER');
-      }
-      if (typeof capability !== 'string' || !capability) throw new Error('MESH_CAPABILITY_REQUIRED');
-
-      return sendTo(target as 'N01' | 'N02' | 'N03' | 'N05' | 'N06', capability, input.payload);
+      if (!['N01', 'N02', 'N03', 'N05', 'N06'].includes(target)) throw new Error('INVALID_MESH_PEER');
+      if (typeof capability !== 'string' || !capability.trim()) throw new Error('MESH_CAPABILITY_REQUIRED');
+      return sendTo(target, capability, input.payload);
     },
 
     streaming() {
@@ -156,7 +143,11 @@ export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOpt
     },
 
     'environment.weather'(payload: unknown) {
-      return tools.getWeather.execute(payload as never);
+      return tools.getWeather?.execute(payload);
     },
   };
+}
+
+function isToolId(value: unknown): value is ToolId {
+  return value === 'createDocument' || value === 'updateDocument' || value === 'getWeather' || value === 'requestSuggestions';
 }
