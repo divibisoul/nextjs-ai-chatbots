@@ -1,10 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Nucleus04HybridCapabilityBridge } from './Nucleus04HybridCapabilityBridge';
-import { Nucleus04Processor } from '../soul-core/Nucleus04Processor';
+import { nucleus04Processor } from '../soul-core/Nucleus04Processor';
 
 test('N04 hybrid bridge exposes only explicitly registered runtimes', async () => {
-  const processor = new Nucleus04Processor();
   const calls: unknown[] = [];
   const bridge = new Nucleus04HybridCapabilityBridge({
     execute: async (capability, input) => {
@@ -16,13 +15,13 @@ test('N04 hybrid bridge exposes only explicitly registered runtimes', async () =
   bridge.register('tool-execution');
   assert.deepEqual(bridge.executableCapabilities(), ['tool-execution']);
   assert.deepEqual(
-    await processor.execute({ capability: 'tool-execution', input: { tool: 'x' } }),
+    await nucleus04Processor.execute({ capability: 'tool-execution', input: { tool: 'x' } }),
     { capability: 'tool-execution', input: { tool: 'x' }, ok: true },
   );
-  assert.equal(calls.length, 0);
+  assert.equal(calls.length, 1);
 });
 
-test('N04 hybrid bridge registers all non-pilot capabilities without replacing the pilot', () => {
+test('N04 hybrid bridge registers all non-pilot capabilities without claiming the pilot', () => {
   const bridge = new Nucleus04HybridCapabilityBridge({
     execute: async (capability, input) => ({ capability, input }),
   });
