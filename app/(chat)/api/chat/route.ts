@@ -22,7 +22,7 @@ import { generateTitleFromUserMessage } from '../../actions';
 import { isProductionEnvironment } from '@/lib/constants';
 import { myProvider } from '@/lib/ai/providers';
 import { entitlementsByUserType } from '@/lib/ai/entitlements';
-import { createNucleus04Tools } from '@/lib/soul-core/Nucleus04ToolRegistry';
+import { createNucleus02Tools } from '@/lib/soul-core/Nucleus02ToolRegistry';
 import { postRequestBodySchema, type PostRequestBody } from './schema';
 import { geolocation } from '@vercel/functions';
 import {
@@ -124,7 +124,7 @@ export async function POST(request: Request) {
 
     const stream = createUIMessageStream({
       execute: ({ writer: dataStream }) => {
-        const nucleus04Tools = createNucleus04Tools({ session, dataStream });
+        const nucleus02Tools = createNucleus02Tools({ session, dataStream });
         const result = streamText({
           model: myProvider.languageModel(selectedChatModel),
           system: systemPrompt({ selectedChatModel, requestHints }),
@@ -135,7 +135,7 @@ export async function POST(request: Request) {
               ? []
               : ['getWeather', 'createDocument', 'updateDocument', 'requestSuggestions'],
           experimental_transform: smoothStream({ chunking: 'word' }),
-          tools: nucleus04Tools,
+          tools: nucleus02Tools,
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,
             functionId: 'stream-text',
@@ -176,6 +176,7 @@ export async function POST(request: Request) {
     if (error instanceof ChatSDKError) {
       return error.toResponse();
     }
+    return new ChatSDKError('bad_request:api').toResponse();
   }
 }
 
