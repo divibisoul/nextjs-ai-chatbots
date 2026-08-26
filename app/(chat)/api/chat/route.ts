@@ -19,13 +19,10 @@ import {
 } from '@/lib/db/queries';
 import { convertToUIMessages, generateUUID } from '@/lib/utils';
 import { generateTitleFromUserMessage } from '../../actions';
-import { createDocument } from '@/lib/ai/tools/create-document';
-import { updateDocument } from '@/lib/ai/tools/update-document';
-import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
-import { getWeather } from '@/lib/ai/tools/get-weather';
 import { isProductionEnvironment } from '@/lib/constants';
 import { myProvider } from '@/lib/ai/providers';
 import { entitlementsByUserType } from '@/lib/ai/entitlements';
+import { createNucleus04Tools } from '@/lib/soul-core/Nucleus04ToolRegistry';
 import { postRequestBodySchema, type PostRequestBody } from './schema';
 import { geolocation } from '@vercel/functions';
 import {
@@ -45,14 +42,10 @@ let globalStreamContext: ResumableStreamContext | null = null;
 export function getStreamContext() {
   if (!globalStreamContext) {
     try {
-      globalStreamContext = createResumableStreamContext({
-        waitUntil: after,
-      });
+      globalStreamContext = createResumableStreamContext({ waitUntil: after });
     } catch (error: any) {
       if (error.message.includes('REDIS_URL')) {
-        console.log(
-          ' > Resumable streams are disabled due to missing REDIS_URL',
-        );
+        console.log(' > Resumable streams are disabled due to missing REDIS_URL');
       } else {
         console.error(error);
       }
@@ -92,7 +85,6 @@ export async function POST(request: Request) {
     }
 
     const userType: UserType = session.user.type;
-
     const messageCount = await getMessageCountByUserId({
       id: session.user.id,
       differenceInHours: 24,
@@ -105,45 +97,26 @@ export async function POST(request: Request) {
     const chat = await getChatById({ id });
 
     if (!chat) {
-      const title = await generateTitleFromUserMessage({
-        message,
-      });
-
-      await saveChat({
-        id,
-        userId: session.user.id,
-        title,
-        visibility: selectedVisibilityType,
-      });
-    } else {
-      if (chat.userId !== session.user.id) {
-        return new ChatSDKError('forbidden:chat').toResponse();
-      }
+      const title = await generateTitleFromUserMessage({ message });
+      await saveChat({ id, userId: session.user.id, title, visibility: selectedVisibilityType });
+    } else if (chat.userId !== session.user.id) {
+      return new ChatSDKError('forbidden:chat').toResponse();
     }
 
     const messagesFromDb = await getMessagesByChatId({ id });
     const uiMessages = [...convertToUIMessages(messagesFromDb), message];
-
     const { longitude, latitude, city, country } = geolocation(request);
-
-    const requestHints: RequestHints = {
-      longitude,
-      latitude,
-      city,
-      country,
-    };
+    const requestHints: RequestHints = { longitude, latitude, city, country };
 
     await saveMessages({
-      messages: [
-        {
-          chatId: id,
-          id: message.id,
-          role: 'user',
-          parts: message.parts,
-          attachments: [],
-          createdAt: new Date(),
-        },
-      ],
+      messages: [{
+        chatId: id,
+        id: message.id,
+        role: 'user',
+        parts: message.parts,
+        attachments: [],
+        createdAt: new Date(),
+      }],
     });
 
     const streamId = generateUUID();
@@ -151,6 +124,7 @@ export async function POST(request: Request) {
 
     const stream = createUIMessageStream({
       execute: ({ writer: dataStream }) => {
+        const nucleus04Tools = createNucleus04Tools({ session, dataStream });
         const result = streamText({
           model: myProvider.languageModel(selectedChatModel),
           system: systemPrompt({ selectedChatModel, requestHints }),
@@ -159,22 +133,9 @@ export async function POST(request: Request) {
           experimental_activeTools:
             selectedChatModel === 'chat-model-reasoning'
               ? []
-              : [
-                  'getWeather',
-                  'createDocument',
-                  'updateDocument',
-                  'requestSuggestions',
-                ],
+              : ['getWeather', 'createDocument', 'updateDocument', 'requestSuggestions'],
           experimental_transform: smoothStream({ chunking: 'word' }),
-          tools: {
-            getWeather,
-            createDocument: createDocument({ session, dataStream }),
-            updateDocument: updateDocument({ session, dataStream }),
-            requestSuggestions: requestSuggestions({
-              session,
-              dataStream,
-            }),
-          },
+          tools: nucleus04Tools,
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,
             functionId: 'stream-text',
@@ -182,12 +143,7 @@ export async function POST(request: Request) {
         });
 
         result.consumeStream();
-
-        dataStream.merge(
-          result.toUIMessageStream({
-            sendReasoning: true,
-          }),
-        );
+        dataStream.merge(result.toUIMessageStream({ sendReasoning: true }));
       },
       generateId: generateUUID,
       onFinish: async ({ messages }) => {
@@ -202,9 +158,7 @@ export async function POST(request: Request) {
           })),
         });
       },
-      onError: () => {
-        return 'Oops, an error occurred!';
-      },
+      onError: () => 'Oops, an error occurred!',
     });
 
     const streamContext = getStreamContext();
@@ -215,9 +169,9 @@ export async function POST(request: Request) {
           stream.pipeThrough(new JsonToSseTransformStream()),
         ),
       );
-    } else {
-      return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
     }
+
+    return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
   } catch (error) {
     if (error instanceof ChatSDKError) {
       return error.toResponse();
@@ -246,6 +200,5 @@ export async function DELETE(request: Request) {
   }
 
   const deletedChat = await deleteChatById({ id });
-
   return Response.json(deletedChat, { status: 200 });
 }
