@@ -3,10 +3,12 @@ import test from 'node:test';
 import { N03_CAPABILITIES } from './N03PeerAdapter';
 import { N04_IN_CHANNELS, N04_OUT_CHANNELS } from './peer-client';
 
-test('N04 exposes the N03 peer and canonical channels', () => {
+test('N04 recognizes N03 as an independent peer with declared capabilities', () => {
   assert.ok(N03_CAPABILITIES.includes('mesh.ping'));
   assert.ok(N03_CAPABILITIES.includes('mesh.describe'));
   assert.ok(N03_CAPABILITIES.includes('capability.list'));
+  assert.ok(N03_CAPABILITIES.includes('multimodal-input'));
+  assert.ok(N03_CAPABILITIES.includes('mesh-communication'));
   assert.ok(N04_IN_CHANNELS.includes('N04.IN.N03'));
   assert.ok(N04_OUT_CHANNELS.includes('N04.OUT.N03'));
 });
