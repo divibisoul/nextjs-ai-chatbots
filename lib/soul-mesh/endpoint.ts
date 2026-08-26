@@ -1,18 +1,28 @@
 import type { SoulMeshMessage } from './SoulMeshProtocol';
+import { isSoulMeshMessage } from './SoulMeshProtocol';
 
 export const NUCLEUS_ID = 'N04' as const;
 const NUCLEI = new Set(['N01', 'N02', 'N03', 'N04', 'N05', 'N06']);
+const MAX_PAYLOAD_BYTES = 1_000_000;
 
 export type SoulMeshHandler = (payload: unknown) => Promise<unknown> | unknown;
 
-export function validateMeshMessage(m: SoulMeshMessage) {
-  if (m.protocol !== 'soul-mesh/1') throw new Error('UNSUPPORTED_MESH_PROTOCOL');
-  if (!m.id || !m.correlationId) throw new Error('MISSING_MESSAGE_ID');
-  if (!NUCLEI.has(m.source) || !NUCLEI.has(m.target) || m.source === m.target) throw new Error('INVALID_NUCLEUS_ROUTE');
+function payloadSize(value: unknown): number {
+  try {
+    return new TextEncoder().encode(JSON.stringify(value)).byteLength;
+  } catch {
+    return Number.POSITIVE_INFINITY;
+  }
+}
+
+export function validateMeshMessage(m: unknown): asserts m is SoulMeshMessage {
+  if (!isSoulMeshMessage(m)) throw new Error('INVALID_MESH_MESSAGE');
+  if (!NUCLEI.has(m.source) || !NUCLEI.has(m.target) || m.source === m.target) {
+    throw new Error('INVALID_NUCLEUS_ROUTE');
+  }
   if (m.target !== NUCLEUS_ID) throw new Error('WRONG_TARGET');
   if (!m.capability && m.kind !== 'event') throw new Error('MISSING_CAPABILITY');
-  if (!Number.isFinite(m.timestamp)) throw new Error('INVALID_TIMESTAMP');
-  return true;
+  if (payloadSize(m.payload) > MAX_PAYLOAD_BYTES) throw new Error('MESH_PAYLOAD_TOO_LARGE');
 }
 
 function result(message: SoulMeshMessage, payload: unknown, kind: SoulMeshMessage['kind'] = 'response'): SoulMeshMessage {
@@ -39,28 +49,20 @@ export async function handleMeshMessage(
 
   const handler = handlers[message.capability ?? ''];
   if (!handler) {
-    return result(
-      message,
-      {
-        code: 'CAPABILITY_HANDLER_NOT_REGISTERED',
-        nucleus: NUCLEUS_ID,
-        capability: message.capability,
-      },
-      'error',
-    );
+    return result(message, {
+      code: 'CAPABILITY_HANDLER_NOT_REGISTERED',
+      nucleus: NUCLEUS_ID,
+      capability: message.capability,
+    }, 'error');
   }
 
   try {
     return result(message, await handler(message.payload));
   } catch (error) {
-    return result(
-      message,
-      {
-        code: 'CAPABILITY_EXECUTION_ERROR',
-        nucleus: NUCLEUS_ID,
-        detail: error instanceof Error ? error.message : 'Unknown error',
-      },
-      'error',
-    );
+    return result(message, {
+      code: 'CAPABILITY_EXECUTION_ERROR',
+      nucleus: NUCLEUS_ID,
+      detail: error instanceof Error ? error.message : 'Unknown error',
+    }, 'error');
   }
 }
