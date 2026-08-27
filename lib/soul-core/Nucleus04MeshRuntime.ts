@@ -5,6 +5,7 @@ import { getWeather } from '@/lib/ai/tools/get-weather';
 import { createDocument } from '@/lib/ai/tools/create-document';
 import { updateDocument } from '@/lib/ai/tools/update-document';
 import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
+import { documentHandlersByArtifactKind, artifactKinds } from '@/lib/artifacts/server';
 import type { ChatMessage } from '@/lib/types';
 import { chatModels } from '@/lib/ai/models';
 import { SOUL_MESH_CAPABILITIES } from '@/lib/soul-mesh/SoulMeshCapabilities';
@@ -17,6 +18,14 @@ type ToolId = 'createDocument' | 'updateDocument' | 'getWeather' | 'requestSugge
 type ToolRequest = { tool: ToolId; arguments: unknown };
 type AiPilotRequest = { prompt?: string; system?: string; model?: string };
 type Task = { capability: string; payload: unknown };
+type ArtifactRequest = {
+  kind?: (typeof artifactKinds)[number];
+  operation?: 'create' | 'update';
+  id?: string;
+  title?: string;
+  description?: string;
+  content?: string;
+};
 
 const NOOP_DATA_STREAM = { write: () => undefined } as unknown as UIMessageStreamWriter<ChatMessage>;
 const AVAILABLE_MODELS = new Set(chatModels.map((model) => model.id));
@@ -35,10 +44,16 @@ function stableKey(value: unknown): string {
   return JSON.stringify(value, Object.keys((value && typeof value === 'object' && !Array.isArray(value)) ? value as object : {}).sort());
 }
 
+function getArtifactHandler(kind: ArtifactRequest['kind']) {
+  const resolved = kind ?? 'text';
+  if (!artifactKinds.includes(resolved as (typeof artifactKinds)[number])) {
+    throw new Error(`ARTIFACT_KIND_NOT_SUPPORTED:${resolved}`);
+  }
+  return documentHandlersByArtifactKind.find((handler) => handler.kind === resolved);
+}
+
 export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOptions = {}) {
-  const tools: Record<string, { execute: (args: unknown) => unknown | Promise<unknown> }> = {
-    getWeather,
-  };
+  const tools: Record<string, { execute: (args: unknown) => unknown | Promise<unknown> }> = { getWeather };
   if (session) {
     tools.createDocument = createDocument({ session, dataStream: NOOP_DATA_STREAM });
     tools.updateDocument = updateDocument({ session, dataStream: NOOP_DATA_STREAM });
@@ -52,6 +67,34 @@ export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOpt
     const selected = tools[input.tool];
     if (!selected?.execute) throw new Error(`TOOL_NOT_AVAILABLE:${input.tool}`);
     return selected.execute(input.arguments);
+  };
+
+  const executeArtifact = async (payload: unknown) => {
+    const input = assertObject(payload, 'ARTIFACT_PAYLOAD') as ArtifactRequest;
+    const activeSession = requireSession(session);
+    const kind = input.kind ?? 'text';
+    const handler = getArtifactHandler(kind);
+    if (!handler) throw new Error(`ARTIFACT_HANDLER_NOT_AVAILABLE:${kind}`);
+
+    if (input.operation === 'update') {
+      if (!input.id || !input.description || input.content === undefined) {
+        throw new Error('ARTIFACT_UPDATE_REQUIRES_ID_DESCRIPTION_AND_CONTENT');
+      }
+      return handler.onUpdateDocument({
+        document: { id: input.id, title: input.title ?? input.id, content: input.content } as never,
+        description: input.description,
+        dataStream: NOOP_DATA_STREAM,
+        session: activeSession,
+      });
+    }
+
+    if (!input.id || !input.title) throw new Error('ARTIFACT_CREATE_REQUIRES_ID_AND_TITLE');
+    return handler.onCreateDocument({
+      id: input.id,
+      title: input.title,
+      dataStream: NOOP_DATA_STREAM,
+      session: activeSession,
+    });
   };
 
   const handlers: Record<string, (payload: unknown) => Promise<unknown> | unknown> = {
@@ -72,21 +115,20 @@ export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOpt
     },
 
     async conversation(payload) { return handlers['ai-pilot'](payload); },
-
     async 'tool-execution'(payload) { return executeTool(payload); },
-
-    async 'artifact-processing'(payload) {
-      requireSession(session);
-      return executeTool(payload);
-    },
+    async 'artifact-processing'(payload) { return executeArtifact(payload); },
 
     async 'document-processing'(payload) {
-      requireSession(session);
-      return executeTool(payload);
+      const input = assertObject(payload, 'DOCUMENT_PROCESSING_PAYLOAD');
+      const operation = input.operation === 'edit' || input.operation === 'update' ? 'edit' : 'create';
+      return executeTool({ tool: operation === 'edit' ? 'updateDocument' : 'createDocument', arguments: input.input ?? input });
     },
 
     async 'context-orchestration'(payload) {
-      return { nucleus: 'N04', protocol: 'soul-mesh/1', receivedAt: Date.now(), context: payload };
+      const input = assertObject(payload, 'CONTEXT_ORCHESTRATION_PAYLOAD');
+      const tasks = Array.isArray(input.tasks) ? input.tasks as Task[] : [];
+      const results = await Promise.all(tasks.map((task) => dispatch(task.capability, task.payload)));
+      return { nucleus: 'N04', protocol: 'soul-mesh/1', receivedAt: Date.now(), context: input.context ?? payload, results };
     },
 
     async 'mesh-communication'(payload) {
@@ -97,7 +139,9 @@ export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOpt
       return sendTo(target as 'N01' | 'N02' | 'N03' | 'N05' | 'N06', input.capability, input.payload);
     },
 
-    streaming() { throw new Error('STREAMING_REQUIRES_CHAT_TRANSPORT'); },
+    streaming(payload) {
+      return { ok: false, code: 'STREAMING_REQUIRES_CHAT_TRANSPORT', capability: 'streaming', transport: 'chat-stream', input: payload };
+    },
 
     async 'batch.process'(payload) {
       const input = assertObject(payload, 'BATCH_PROCESS_PAYLOAD');
@@ -105,18 +149,18 @@ export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOpt
       return { ok: true, results: await Promise.all(tasks.map((task) => dispatch(task.capability, task.payload))) };
     },
 
-    async 'document.create'(payload) {
-      requireSession(session);
-      return executeTool({ tool: 'createDocument', arguments: payload });
-    },
-
-    async 'document.edit'(payload) {
-      requireSession(session);
-      return executeTool({ tool: 'updateDocument', arguments: payload });
-    },
+    async 'document.create'(payload) { return executeTool({ tool: 'createDocument', arguments: payload }); },
+    async 'document.edit'(payload) { return executeTool({ tool: 'updateDocument', arguments: payload }); },
 
     async 'artifact.analyze'(payload) {
-      return { ok: false, code: 'CAPABILITY_NOT_IMPLEMENTED', capability: 'artifact.analyze', reason: 'No standalone artifact analyzer is present in the repository; no fake success is returned.', input: payload };
+      const input = assertObject(payload, 'ARTIFACT_ANALYZE_PAYLOAD');
+      return {
+        ok: false,
+        code: 'CAPABILITY_NOT_IMPLEMENTED',
+        capability: 'artifact.analyze',
+        reason: `No standalone analyzer exists. Available artifact handlers: ${artifactKinds.join(', ')}. Use artifact-processing for real create/update operations.`,
+        input,
+      };
     },
 
     async 'tool.run'(payload) { return executeTool(payload); },
@@ -145,13 +189,10 @@ export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOpt
     },
 
     'mesh.ping'(payload) { return { ok: true, nucleus: 'N04', echoed: payload, processedAt: Date.now() }; },
-
     'mesh.describe'() {
       return { nucleus: 'N04', protocol: 'soul-mesh/1', capabilities: SOUL_MESH_CAPABILITIES, tools: Object.keys(tools), models: chatModels, peers: ['N01', 'N02', 'N03', 'N05', 'N06'], channels: { inbound: N04_IN_CHANNELS, outbound: N04_OUT_CHANNELS }, status: 'online' };
     },
-
     'core.health'() { return { ok: true, nucleus: 'N04', runtime: 'nextjs-ai-chatbots', authenticatedToolContext: Boolean(session?.user?.id), timestamp: Date.now() }; },
-
     'environment.weather'(payload) { return tools.getWeather.execute(payload); },
   };
 
