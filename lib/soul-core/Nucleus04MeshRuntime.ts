@@ -27,6 +27,10 @@ type ArtifactRequest = {
   content?: string;
 };
 
+type MeshTool = {
+  execute?: (...args: unknown[]) => unknown | Promise<unknown>;
+};
+
 const NOOP_DATA_STREAM = { write: () => undefined } as unknown as UIMessageStreamWriter<ChatMessage>;
 const AVAILABLE_MODELS = new Set(chatModels.map((model) => model.id));
 type ProviderModelId = 'chat-model' | 'chat-model-reasoning' | 'title-model' | 'artifact-model';
@@ -80,11 +84,20 @@ function analyzeArtifactPayload(payload: unknown) {
 }
 
 export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOptions = {}) {
-  const tools: Record<string, { execute: (args: unknown) => unknown | Promise<unknown> }> = { getWeather };
+  const tools: Record<string, MeshTool> = {};
+
+  const registerTool = (name: string, candidate: unknown) => {
+    if (!candidate || typeof candidate !== 'object') return;
+    const execute = Reflect.get(candidate, 'execute');
+    if (typeof execute !== 'function') return;
+    tools[name] = { execute: (...args) => Reflect.apply(execute, candidate, args) };
+  };
+
+  registerTool('getWeather', getWeather);
   if (session) {
-    tools.createDocument = createDocument({ session, dataStream: NOOP_DATA_STREAM });
-    tools.updateDocument = updateDocument({ session, dataStream: NOOP_DATA_STREAM });
-    tools.requestSuggestions = requestSuggestions({ session, dataStream: NOOP_DATA_STREAM });
+    registerTool('createDocument', createDocument({ session, dataStream: NOOP_DATA_STREAM }));
+    registerTool('updateDocument', updateDocument({ session, dataStream: NOOP_DATA_STREAM }));
+    registerTool('requestSuggestions', requestSuggestions({ session, dataStream: NOOP_DATA_STREAM }));
   }
 
   const executeTool = async (payload: unknown) => {
@@ -215,7 +228,7 @@ export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOpt
       return { nucleus: 'N04', protocol: 'soul-mesh/1', capabilities: SOUL_MESH_CAPABILITIES, tools: Object.keys(tools), models: chatModels, peers: ['N01', 'N02', 'N03', 'N05', 'N06'], channels: { inbound: N04_IN_CHANNELS, outbound: N04_OUT_CHANNELS }, status: 'online' };
     },
     'core.health'() { return { ok: true, nucleus: 'N04', runtime: 'nextjs-ai-chatbots', authenticatedToolContext: Boolean(session?.user?.id), timestamp: Date.now() }; },
-    'environment.weather'(payload) { return tools.getWeather.execute(payload); },
+    'environment.weather'(payload) { return tools.getWeather?.execute?.(payload); },
   };
 
   const dispatch = async (capability: string, payload: unknown) => {
