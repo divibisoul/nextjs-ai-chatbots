@@ -3,31 +3,32 @@
 ## Structural upgrade — 2026-08-27
 
 - 15 capability contract: DECLARED AND ROUTED
-- Real runtime handlers: CONNECTED for AI, tools, documents, orchestration, Mesh and scheduling
-- `artifact.analyze`: EXPLICIT PENDING — no standalone artifact analyzer exists in the repository; the runtime refuses fake success
-- `streaming`: PRESERVED through the existing chat streaming transport; Mesh request path returns an explicit transport-required error instead of fabricating a stream
-- Parallel worker execution: IMPLEMENTED with Node `worker_threads`
-- Worker resilience: IMPLEMENTED with bounded concurrency, priority, timeout and worker termination/recovery
-- Batch and `parallel.map`: IMPLEMENTED with real concurrent handler dispatch
-- Workflow orchestration: IMPLEMENTED for ordered multi-step dispatch
-- Five IN + five OUT logical topology: CONFIGURED for N01, N02, N03, N05, N06
-- N01 registration/discovery: PRESENT in the N04 Mesh layer
-- TTL cache: IMPLEMENTED (5 min default) and restricted to read/idempotent runtime paths in the processor
-- Priority queue: IMPLEMENTED; N01 Mesh requests receive higher priority
-- README: UPDATED
-- ARCHITECTURE.md: PRESENT
+- Runtime binding: every advertised capability now has a concrete registered handler; a handler may still return a structured capability-level limitation when the underlying feature is not present.
+- AI/tool runtime: CONNECTED to the repository's existing AI SDK, model provider and tools.
+- Document runtime: CONNECTED to the existing `createDocument` / `updateDocument` tools.
+- Artifact runtime: CONNECTED to the existing artifact handlers for `text`, `code`, `image` and `sheet` create/update operations; required session and payload fields are validated.
+- `artifact.analyze`: PENDING BY DESIGN — the repository has artifact generation/update handlers but no standalone artifact analysis engine. The Mesh reports `CAPABILITY_NOT_IMPLEMENTED` instead of fabricating success.
+- `streaming`: TRANSPORT-BOUND — the existing chat streaming system is preserved. Mesh request/response returns a structured transport requirement rather than pretending a stream is a normal JSON result.
+- Context orchestration: IMPLEMENTED as real dispatch of declared subtasks with concurrent result aggregation.
+- Batch and `parallel.map`: IMPLEMENTED with concurrent dispatch through the runtime handler graph.
+- Workflow orchestration: IMPLEMENTED with ordered multi-step dispatch.
+- Scheduling: IMPLEMENTED as process-local delayed dispatch; persistence across process restarts is intentionally not claimed.
+- Parallel worker execution: IMPLEMENTED with Node `worker_threads` for isolated CPU-bound transforms.
+- Worker resilience: IMPLEMENTED with bounded concurrency, priority, timeout and worker termination/recovery.
+- Five IN + five OUT logical topology: CONFIGURED for N01, N02, N03, N05, N06.
+- N01 registration/discovery: PRESENT in the N04 Mesh layer.
+- TTL cache: IMPLEMENTED (5 min default) and restricted to read/idempotent runtime paths in the processor.
+- Priority queue: IMPLEMENTED; N01 Mesh requests receive higher priority than internal processor work.
+- README: UPDATED.
+- ARCHITECTURE.md: PRESENT.
 
 ## Engineering reality rule
 
-A route is not considered a capability implementation merely because it returns HTTP 200. N04 must resolve the requested capability to a real runtime function. Missing functionality is reported as `CAPABILITY_NOT_IMPLEMENTED`; it is never represented as a successful fake result.
+A route is not considered a capability implementation merely because it returns HTTP 200. N04 must resolve the requested capability to a real runtime function. Missing functionality is reported explicitly and is never represented as successful fake work.
 
 ## Validation state
 
-GitHub CI is the authoritative build/typecheck/contract validation. Live N01↔N04 communication and provider-backed operational tests remain pending until the nuclei are running together. This does not block structural construction.
-
-## Dependency note
-
-The requested Piscina optimization was evaluated against the repository's pnpm frozen-lockfile workflow. The current pool uses stable Node `worker_threads` without introducing an unverified dependency/lockfile change. Piscina can be introduced later as a replaceable adapter when its lockfile is intentionally updated.
+GitHub CI is the authoritative build/typecheck/contract validation. Live N01↔N04 communication, provider-backed credentials and real operational audio/document workloads remain environment-dependent validation steps. Their absence does not block structural construction.
 
 ## Topology
 
@@ -39,3 +40,5 @@ N04 OUT: N01, N02, N03, N05, N06
 - Runtime bridge: `dc9c1a64e3b5ed29769331246c9486e843fe310e`
 - Processor binding: `bfd00676d76f29f71dc9e1901714abc740b58540`
 - Worker resilience: `d8600d346290f02b5104ec6649e200ec7b653681`
+- Runtime handler hardening: `b0264064c94f30e7e096926a0d8028b491aff057`
+- Capability binding regression test: `da2b2227b366c0a292c074352c6c6a1e84b2888d`
