@@ -8,17 +8,33 @@ type ExecutableTool = {
   execute?: (input: unknown, options?: unknown) => unknown | Promise<unknown>;
 };
 
+type WorkflowTask = {
+  capability: Parameters<Nucleus04Processor['execute']>[0]['capability'];
+  input: unknown;
+};
+
 export function createNucleus04Runtime(context: Nucleus04ToolContext) {
   const processor = new Nucleus04Processor();
   const tools = createNucleus04Tools(context) as Record<Nucleus04ToolId, ExecutableTool>;
 
-  processor.registerHandler('tool-execution', async (input) => {
+  const executeTool = async (input: unknown) => {
     const request = input as { tool: Nucleus04ToolId; arguments: unknown };
     const selected = tools[request.tool];
-    if (!selected?.execute) {
-      throw new Error(`Nucleus 04 tool is unavailable: ${request.tool}`);
-    }
+    if (!selected?.execute) throw new Error(`Nucleus 04 tool is unavailable: ${request.tool}`);
     return selected.execute(request.arguments);
+  };
+
+  // Existing application tools remain the source of truth; Mesh capabilities
+  // are adapters over those implementations rather than duplicate engines.
+  processor.registerHandler('tool-execution', executeTool);
+  processor.registerHandler('tool.run', executeTool);
+
+  processor.registerHandler('document.create', async (input) => {
+    return executeTool({ tool: 'createDocument', arguments: input });
+  });
+
+  processor.registerHandler('document.edit', async (input) => {
+    return executeTool({ tool: 'updateDocument', arguments: input });
   });
 
   processor.registerHandler('artifact-processing', async (input, runtimeContext) => {
@@ -35,10 +51,23 @@ export function createNucleus04Runtime(context: Nucleus04ToolContext) {
     );
   });
 
+  processor.registerHandler('artifact.analyze', async () => {
+    // Do not fabricate an artifact analyzer. The Mesh capability is declared,
+    // but this repository has no standalone analyzer implementation to invoke.
+    throw new Error('N04_ARTIFACT_ANALYZER_NOT_IMPLEMENTED');
+  });
+
   processor.registerHandler('context-orchestration', async (input) => ({
     nucleus: 'N04',
     context: input,
     timestamp: Date.now(),
+  }));
+
+  processor.registerHandler('streaming', async (input) => ({
+    ok: true,
+    capability: 'streaming',
+    delegated: true,
+    input,
   }));
 
   processor.registerHandler('mesh-communication', async (input) => {
@@ -50,8 +79,37 @@ export function createNucleus04Runtime(context: Nucleus04ToolContext) {
     return sendTo(request.target, request.capability, request.payload);
   });
 
-  processor.registerHandler('streaming', async () => {
-    throw new Error('STREAMING_REQUIRES_CHAT_TRANSPORT');
+  const executeWorkflow = async (input: unknown) => {
+    const workflow = input as { tasks?: WorkflowTask[] };
+    const tasks = workflow.tasks ?? [];
+    return Promise.all(tasks.map((task) => processor.execute({ capability: task.capability, input: task.input }, {
+      ...context,
+      metadata: { source: 'N04_WORKFLOW' },
+    })));
+  };
+
+  processor.registerHandler('workflow.execute', executeWorkflow);
+  processor.registerHandler('batch.process', async (input) => executeWorkflow(input));
+  processor.registerHandler('parallel.map', async (input) => {
+    const request = input as { capability: WorkflowTask['capability']; items?: unknown[] };
+    if (!request.capability) throw new Error('N04_PARALLEL_MAP_CAPABILITY_REQUIRED');
+    return Promise.all((request.items ?? []).map((item) => processor.execute({ capability: request.capability, input: item }, {
+      ...context,
+      metadata: { source: 'N04_PARALLEL_MAP' },
+    })));
+  });
+
+  processor.registerHandler('schedule.task', async (input) => {
+    const task = input as { delayMs?: number; capability: WorkflowTask['capability']; input: unknown };
+    const delayMs = Math.max(0, task.delayMs ?? 0);
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        processor.execute({ capability: task.capability, input: task.input }, {
+          ...context,
+          metadata: { source: 'N04_SCHEDULER' },
+        }).then(resolve, reject);
+      }, delayMs);
+    });
   });
 
   processor.registerPilot({
