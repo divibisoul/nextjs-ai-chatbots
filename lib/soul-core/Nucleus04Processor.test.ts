@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Nucleus04Processor } from './Nucleus04Processor';
+import { NUCLEUS_04_CAPABILITIES } from './Nucleus04Capabilities';
+import { createNucleus04MeshHandlers } from './Nucleus04MeshRuntime';
 
 test('Nucleus 04 exposes executable core capabilities', () => {
   const processor = new Nucleus04Processor();
@@ -8,6 +10,13 @@ test('Nucleus 04 exposes executable core capabilities', () => {
   assert.equal(processor.supports('tool-execution'), true);
   assert.equal(processor.supports('mesh-communication'), true);
   assert.equal(processor.supports('not-a-capability'), false);
+});
+
+test('Nucleus 04 binds every advertised capability to a runtime handler', () => {
+  const handlers = createNucleus04MeshHandlers();
+  for (const capability of NUCLEUS_04_CAPABILITIES) {
+    assert.equal(typeof handlers[capability], 'function', `missing handler: ${capability}`);
+  }
 });
 
 test('Nucleus 04 executes a registered capability handler', async () => {
