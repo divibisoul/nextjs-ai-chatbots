@@ -6,6 +6,7 @@
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
+    "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": { "@/*": ["./*"] },
     "lib": ["ES2022", "DOM"],
@@ -17,9 +18,8 @@
     "lib/soul-core/Nucleus04Processor.ts",
     "lib/soul-core/Nucleus04Runtime.ts",
     "lib/soul-core/Nucleus04ToolRegistry.ts",
-    "lib/soul-core/Nucleus04MeshRuntime.ts",
     "lib/soul-mesh/**/*.ts",
     "lib/soul/**/*.ts"
   ],
-  "exclude": ["**/*.test.ts"]
+  "exclude": ["**/*.test.ts", "lib/soul-core/Nucleus04MeshRuntime.ts"]
 }
