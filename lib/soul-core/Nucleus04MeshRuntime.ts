@@ -29,6 +29,12 @@ type ArtifactRequest = {
 
 const NOOP_DATA_STREAM = { write: () => undefined } as unknown as UIMessageStreamWriter<ChatMessage>;
 const AVAILABLE_MODELS = new Set(chatModels.map((model) => model.id));
+type ProviderModelId = 'chat-model' | 'chat-model-reasoning' | 'title-model' | 'artifact-model';
+const PROVIDER_MODEL_IDS = new Set<ProviderModelId>(['chat-model', 'chat-model-reasoning', 'title-model', 'artifact-model']);
+
+function isProviderModelId(value: string): value is ProviderModelId {
+  return PROVIDER_MODEL_IDS.has(value as ProviderModelId);
+}
 
 function assertObject(value: unknown, name: string): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${name}_MUST_BE_OBJECT`);
@@ -41,7 +47,9 @@ function requireSession(session?: Session | null): Session {
 }
 
 function stableKey(value: unknown): string {
-  return JSON.stringify(value, Object.keys((value && typeof value === 'object' && !Array.isArray(value)) ? value as object : {}).sort());
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return JSON.stringify(value);
+  const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b));
+  return JSON.stringify(Object.fromEntries(entries));
 }
 
 function getArtifactHandler(kind: ArtifactRequest['kind']) {
@@ -50,6 +58,25 @@ function getArtifactHandler(kind: ArtifactRequest['kind']) {
     throw new Error(`ARTIFACT_KIND_NOT_SUPPORTED:${resolved}`);
   }
   return documentHandlersByArtifactKind.find((handler) => handler.kind === resolved);
+}
+
+function analyzeArtifactPayload(payload: unknown) {
+  const input = assertObject(payload, 'ARTIFACT_ANALYZE_PAYLOAD');
+  const content = typeof input.content === 'string' ? input.content : undefined;
+  const bytes = typeof input.bytes === 'number' && Number.isFinite(input.bytes) ? input.bytes : undefined;
+  const mimeType = typeof input.mimeType === 'string' ? input.mimeType : undefined;
+  return {
+    ok: true,
+    capability: 'artifact.analyze',
+    analysis: {
+      kind: input.kind ?? 'unknown',
+      mimeType: mimeType ?? null,
+      bytes: bytes ?? (content ? new TextEncoder().encode(content).byteLength : null),
+      textLength: content?.length ?? null,
+      hasContent: content !== undefined,
+      supportedArtifactKinds: [...artifactKinds],
+    },
+  };
 }
 
 export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOptions = {}) {
@@ -102,7 +129,10 @@ export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOpt
       const input = assertObject(payload, 'AI_PILOT_PAYLOAD') as AiPilotRequest;
       const prompt = typeof input.prompt === 'string' ? input.prompt : '';
       if (!prompt.trim()) throw new Error('AI_PILOT_PROMPT_REQUIRED');
-      const modelId = typeof input.model === 'string' && AVAILABLE_MODELS.has(input.model) ? input.model : 'chat-model';
+      const requestedModel = typeof input.model === 'string' ? input.model : 'chat-model';
+      const modelId: ProviderModelId = isProviderModelId(requestedModel) && AVAILABLE_MODELS.has(requestedModel)
+        ? requestedModel
+        : 'chat-model';
       const key = `ai:${modelId}:${stableKey({ prompt, system: input.system })}`;
       return n04Cache.getOrSet(key, async () => {
         const result = await generateText({
@@ -152,16 +182,7 @@ export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOpt
     async 'document.create'(payload) { return executeTool({ tool: 'createDocument', arguments: payload }); },
     async 'document.edit'(payload) { return executeTool({ tool: 'updateDocument', arguments: payload }); },
 
-    async 'artifact.analyze'(payload) {
-      const input = assertObject(payload, 'ARTIFACT_ANALYZE_PAYLOAD');
-      return {
-        ok: false,
-        code: 'CAPABILITY_NOT_IMPLEMENTED',
-        capability: 'artifact.analyze',
-        reason: `No standalone analyzer exists. Available artifact handlers: ${artifactKinds.join(', ')}. Use artifact-processing for real create/update operations.`,
-        input,
-      };
-    },
+    async 'artifact.analyze'(payload) { return analyzeArtifactPayload(payload); },
 
     async 'tool.run'(payload) { return executeTool(payload); },
 
@@ -176,6 +197,7 @@ export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOpt
     async 'schedule.task'(payload) {
       const input = assertObject(payload, 'SCHEDULE_TASK_PAYLOAD');
       const delayMs = Math.max(0, Number(input.delayMs ?? 0));
+      if (!Number.isFinite(delayMs)) throw new Error('SCHEDULE_DELAY_INVALID');
       const taskId = crypto.randomUUID();
       setTimeout(() => { void dispatch(String(input.capability), input.input); }, delayMs).unref?.();
       return { scheduled: true, taskId, delayMs, capability: input.capability };
