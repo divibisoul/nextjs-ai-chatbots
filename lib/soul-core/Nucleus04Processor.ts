@@ -24,6 +24,10 @@ function stableSerialize(value: unknown): string {
   return `{${Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => `${JSON.stringify(key)}:${stableSerialize(item)}`).join(',')}}`;
 }
 
+function isPeerSource(value: unknown): boolean {
+  return ['N01', 'N02', 'N03', 'N05', 'N06'].includes(String(value).toUpperCase());
+}
+
 export class Nucleus04Processor {
   readonly id = 'nucleus-04' as const;
   readonly capabilities = NUCLEUS_04_CAPABILITIES;
@@ -34,23 +38,29 @@ export class Nucleus04Processor {
   constructor(options: { session?: Session | null } = {}) {
     const runtime = createNucleus04MeshHandlers({ session: options.session });
     for (const capability of this.capabilities) {
-      const handler = runtime[capability];
-      if (handler) this.registerHandler(capability, async (input) => handler(input));
+      const handler = runtime[capability as keyof typeof runtime];
+      if (handler) this.registerHandler(capability, async (input, context) => handler(input, context));
     }
 
     const baseMeshHandler = this.handlers.get('mesh-communication');
     this.registerHandler('mesh-communication', async (input, context) => {
       const request = objectInput(input);
-      const target = String(request.target ?? '');
+      const target = String(request.target ?? '').toUpperCase();
       if (!isKnownN04Peer(target)) throw new Error(`INVALID_MESH_PEER:${target}`);
       const action = typeof request.action === 'string' ? request.action : 'request';
       if (action === 'offer') {
-        const capabilities = Array.isArray(request.capabilities) ? request.capabilities.filter((value): value is string => typeof value === 'string') : [...this.capabilities];
+        const capabilities = Array.isArray(request.capabilities)
+          ? request.capabilities.filter((value): value is string => typeof value === 'string')
+          : [...this.capabilities];
         return offerCapabilities(target, capabilities);
       }
       if (typeof request.capability !== 'string' || !request.capability.trim()) throw new Error('MESH_CAPABILITY_REQUIRED');
-      if (action === 'support' || action === 'request') return requestSupport(target, request.capability, request.payload, typeof request.reason === 'string' ? request.reason : undefined);
-      if (action === 'delegate') return delegateWork(target, request.capability, request.payload, typeof request.reason === 'string' ? request.reason : undefined);
+      if (action === 'support' || action === 'request') {
+        return requestSupport(target, request.capability, request.payload, typeof request.reason === 'string' ? request.reason : undefined);
+      }
+      if (action === 'delegate') {
+        return delegateWork(target, request.capability, request.payload, typeof request.reason === 'string' ? request.reason : undefined);
+      }
       if (baseMeshHandler) return baseMeshHandler(input, context);
       throw new Error('N04_MESH_HANDLER_UNAVAILABLE');
     });
@@ -60,6 +70,8 @@ export class Nucleus04Processor {
   registerPilot(pilot: Nucleus04Pilot) { this.pilot = pilot; return this; }
   getPilot() { return this.pilot; }
   supports(capability: string): capability is Nucleus04Capability { return (this.capabilities as readonly string[]).includes(capability); }
+  hasHandler(capability: string): boolean { return this.handlers.has(capability); }
+  getRegisteredCapabilities(): Nucleus04Capability[] { return [...this.handlers.keys()] as Nucleus04Capability[]; }
 
   async execute(request: Nucleus04Request, context?: Nucleus04Context) {
     if (!this.supports(request.capability)) throw new Error(`Unsupported Nucleus 04 capability: ${request.capability}`);
@@ -68,7 +80,7 @@ export class Nucleus04Processor {
     if (!handler) throw new Error(`N04_CAPABILITY_HANDLER_MISSING:${request.capability}`);
 
     const source = String(context?.metadata?.source ?? '').toUpperCase();
-    const priority: N04Priority = source === 'N01' || source === 'N02' || source === 'N03' || source === 'N05' || source === 'N06'
+    const priority: N04Priority = isPeerSource(source)
       ? 'mesh'
       : ['batch.process', 'parallel.map'].includes(request.capability) ? 'batch' : 'internal';
     const gpuPriority = priority === 'mesh' ? 'mesh' : priority === 'batch' ? 'batch' : 'internal';
