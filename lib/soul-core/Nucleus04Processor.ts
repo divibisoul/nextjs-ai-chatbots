@@ -3,13 +3,8 @@ import type { Nucleus04Capability } from './Nucleus04Capabilities';
 import { NUCLEUS_04_CAPABILITIES } from './Nucleus04Capabilities';
 import { createNucleus04MeshHandlers } from './Nucleus04MeshRuntime';
 import { n04Cache } from './N04Cache';
-import { N04PriorityQueue } from './N04PriorityQueue';
-import {
-  delegateWork,
-  isKnownN04Peer,
-  offerCapabilities,
-  requestSupport,
-} from '../soul-mesh/N04CooperativeMesh';
+import { N04PriorityQueue, type N04Priority } from './N04PriorityQueue';
+import { delegateWork, isKnownN04Peer, offerCapabilities, requestSupport } from '../soul-mesh/N04CooperativeMesh';
 
 export interface Nucleus04Context { session?: Session | null; dataStream?: unknown; metadata?: Record<string, unknown>; }
 export interface Nucleus04Request { capability: Nucleus04Capability; input: unknown; requestId?: string; }
@@ -22,12 +17,17 @@ function objectInput(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-/** Runtime boundary for N04. Advertised capabilities are bound to the real Mesh runtime. */
+function stableSerialize(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableSerialize).join(',')}]`;
+  return `{${Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => `${JSON.stringify(key)}:${stableSerialize(item)}`).join(',')}}`;
+}
+
 export class Nucleus04Processor {
   readonly id = 'nucleus-04' as const;
   readonly capabilities = NUCLEUS_04_CAPABILITIES;
   private readonly handlers = new Map<string, Nucleus04CapabilityHandler>();
-  private readonly queue = new N04PriorityQueue(Math.max(1, Number(process.env.N04_HANDLER_CONCURRENCY ?? 4)));
+  private readonly queue = new N04PriorityQueue();
   private pilot?: Nucleus04Pilot;
 
   constructor(options: { session?: Session | null } = {}) {
@@ -42,37 +42,20 @@ export class Nucleus04Processor {
       const request = objectInput(input);
       const target = String(request.target ?? '');
       if (!isKnownN04Peer(target)) throw new Error(`INVALID_MESH_PEER:${target}`);
-
       const action = typeof request.action === 'string' ? request.action : 'request';
       if (action === 'offer') {
-        const capabilities = Array.isArray(request.capabilities)
-          ? request.capabilities.filter((value): value is string => typeof value === 'string')
-          : [...this.capabilities];
+        const capabilities = Array.isArray(request.capabilities) ? request.capabilities.filter((value): value is string => typeof value === 'string') : [...this.capabilities];
         return offerCapabilities(target, capabilities);
       }
-
-      if (typeof request.capability !== 'string' || !request.capability.trim()) {
-        throw new Error('MESH_CAPABILITY_REQUIRED');
-      }
-
-      if (action === 'support' || action === 'request') {
-        return requestSupport(target, request.capability, request.payload, typeof request.reason === 'string' ? request.reason : undefined);
-      }
-
-      if (action === 'delegate') {
-        return delegateWork(target, request.capability, request.payload, typeof request.reason === 'string' ? request.reason : undefined);
-      }
-
+      if (typeof request.capability !== 'string' || !request.capability.trim()) throw new Error('MESH_CAPABILITY_REQUIRED');
+      if (action === 'support' || action === 'request') return requestSupport(target, request.capability, request.payload, typeof request.reason === 'string' ? request.reason : undefined);
+      if (action === 'delegate') return delegateWork(target, request.capability, request.payload, typeof request.reason === 'string' ? request.reason : undefined);
       if (baseMeshHandler) return baseMeshHandler(input, context);
       throw new Error('N04_MESH_HANDLER_UNAVAILABLE');
     });
   }
 
-  registerHandler(capability: Nucleus04Capability, handler: Nucleus04CapabilityHandler) {
-    this.handlers.set(capability, handler);
-    return this;
-  }
-
+  registerHandler(capability: Nucleus04Capability, handler: Nucleus04CapabilityHandler) { this.handlers.set(capability, handler); return this; }
   registerPilot(pilot: Nucleus04Pilot) { this.pilot = pilot; return this; }
   getPilot() { return this.pilot; }
   supports(capability: string): capability is Nucleus04Capability { return (this.capabilities as readonly string[]).includes(capability); }
@@ -83,10 +66,13 @@ export class Nucleus04Processor {
     const handler = this.handlers.get(request.capability);
     if (!handler) throw new Error(`N04_CAPABILITY_HANDLER_MISSING:${request.capability}`);
 
-    const priority = context?.metadata?.source === 'N01' ? 'mesh' : 'internal';
-    const cacheable = ['ai-pilot', 'environment.weather', 'context-orchestration', 'mesh.describe', 'core.health'].includes(request.capability);
+    const source = String(context?.metadata?.source ?? '').toUpperCase();
+    const priority: N04Priority = source === 'N01' || source === 'N02' || source === 'N03' || source === 'N05' || source === 'N06'
+      ? 'mesh'
+      : ['batch.process', 'parallel.map'].includes(request.capability) ? 'batch' : 'internal';
+    const cacheable = ['ai-pilot', 'environment.weather', 'mesh.describe', 'core.health'].includes(request.capability);
     const run = () => cacheable
-      ? n04Cache.getOrSet(`${request.capability}:${JSON.stringify(request.input)}`, () => handler(request.input, context))
+      ? n04Cache.getOrSet(`${request.capability}:${stableSerialize(request.input)}`, () => handler(request.input, context))
       : handler(request.input, context);
     return this.queue.add(run, priority);
   }
