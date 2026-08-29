@@ -27,6 +27,12 @@ N04 is an independent IA node. N01–N06 are treated as independent nuclei with 
 
 Local execution is preferred when N04 owns the requested capability. If the work is outside N04's local capability set, the cooperative layer can discover a capable peer, negotiate a supported transport, issue a correlated request and return the peer result.
 
+## Cross-nucleus synergy layer
+
+The repository now includes `lib/soul-mesh/N04SynergyEngine.ts`, a deterministic dependency-free analyzer for capability, agent, tool, context and execution composition between two nuclei. It identifies candidate cooperative compositions without falsely registering a capability that has not been implemented. `N04SynergyEngine.test.ts` provides deterministic coverage for the composition discovery contract.
+
+This establishes the first machine-readable layer for the fusion sequence: individual nuclei -> pair analysis -> pair composition -> cross-pair analysis -> system-level composition. The actual peer capability inventories remain discovered from the live nuclei rather than invented locally.
+
 ## Parallel workstream coordination
 
 GitHub is the durable coordination surface for the six simultaneous engineering fronts. Each front must leave its branch/commit, changed files, completed work, verified facts, unresolved failures and explicit next actions. Pair work is additive: completed pair capabilities should strengthen both nuclei and expose reusable contracts to subsequent pairs without deleting individual backlogs.
@@ -58,6 +64,6 @@ Every future N04 audit must follow: inspect real GitHub state → compare with t
 
 `upgrade/n04-hybrid-cooperative-v10`
 
-## Latest contract commit
+## Latest upgrade commit
 
-`177bba991941c7915d02268a5acfab271adc73f8` — 2026-08-29
+`e043e27607bc1d2b6fd4c4c64214dcbf58479dc0` — 2026-08-29
