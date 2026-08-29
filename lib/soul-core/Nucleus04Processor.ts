@@ -55,6 +55,17 @@ export class Nucleus04Processor {
     return this.pilot;
   }
 
+  registeredCapabilities(): Nucleus04Capability[] {
+    return this.capabilities.filter((capability) =>
+      capability === 'ai-pilot' ? Boolean(this.pilot) : this.handlers.has(capability),
+    );
+  }
+
+  missingCapabilities(): Nucleus04Capability[] {
+    const registered = new Set(this.registeredCapabilities());
+    return this.capabilities.filter((capability) => !registered.has(capability));
+  }
+
   supports(capability: string): capability is Nucleus04Capability {
     return (this.capabilities as readonly string[]).includes(capability);
   }
