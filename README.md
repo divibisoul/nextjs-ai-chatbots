@@ -4,7 +4,7 @@
 
 ## N04 — Super GPU / Execution Engine
 
-N04 is the execution-oriented Soul nucleus. Its Mesh contract advertises 15 capabilities and the runtime now routes those capabilities to real application functions where they exist. The original application remains intact; the N04 layer is additive.
+N04 is the execution-oriented Soul nucleus. Its Mesh contract advertises 15 capabilities and the runtime routes those capabilities to real application functions where they exist. The original application remains intact; the N04 layer is additive.
 
 ### 15 Mesh capabilities
 
@@ -24,9 +24,26 @@ The runtime includes a configurable TTL cache (default 5 minutes). The processor
 
 N04 exposes five logical IN channels (`N01`, `N02`, `N03`, `N05`, `N06`) and five corresponding OUT peers. Existing hybrid HTTP/WebSocket/WebView transport layers remain additive and are not replaced.
 
+### Cooperative AI interdependence
+
+Each N01–N06 nucleus remains an independent AI with its own agents and capabilities. Soul Mesh is the common interoperability/control plane, not a replacement application API. N04 can explicitly:
+
+- offer its capabilities to another nucleus;
+- request support from a peer when N04 reaches an operational boundary;
+- delegate work to the nucleus that owns a required capability;
+- return correlated results to the originating nucleus.
+
+The implementation lives in `lib/soul-mesh/N04CooperativeMesh.ts` and is wired into the existing `mesh-communication` capability in `Nucleus04Processor`. It preserves the existing Mesh protocol and five IN/five OUT topology.
+
+### Hybrid transport
+
+The protocol supports `IN_PROCESS`, `WEBVIEW_BRIDGE`, `LOOPBACK_HTTP`, `HTTP`, and `REALTIME`. Transport negotiation remains capability-neutral: the transport carries the canonical Soul Mesh message rather than creating a parallel API. The existing multiplexer/fallback path remains intact, and unsupported transport availability is never claimed as a live connection.
+
 ### Runtime path
 
-`N01 → Mesh HTTP endpoint → protocol validation → capability handler → real application function → Mesh response`.
+`N01/N02/N03/N05/N06 → Soul Mesh → N04 gateway → protocol validation → capability handler → real application function → correlated Mesh response`.
+
+For cooperative work, the path can additionally become `N04 → peer discovery/transport negotiation → peer capability → result → N04`, while preserving the same canonical message contract.
 
 Batch and `parallel.map` dispatch independent handler calls concurrently. Workflow execution preserves step order. Scheduling is process-local and therefore ephemeral by design.
 
