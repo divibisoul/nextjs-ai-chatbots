@@ -11,6 +11,7 @@ import { chatModels } from '@/lib/ai/models';
 import { SOUL_MESH_CAPABILITIES } from '@/lib/soul-mesh/SoulMeshCapabilities';
 import { sendTo, N04_IN_CHANNELS, N04_OUT_CHANNELS } from '@/lib/soul-mesh/peer-client';
 import { n04Cache } from './N04Cache';
+import { n04SuperGpu } from './N04SuperGpuEngine';
 
 export type Nucleus04MeshRuntimeOptions = { session?: Session | null };
 
@@ -170,7 +171,7 @@ export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOpt
     async 'context-orchestration'(payload) {
       const input = assertObject(payload, 'CONTEXT_ORCHESTRATION_PAYLOAD');
       const tasks = Array.isArray(input.tasks) ? input.tasks as Task[] : [];
-      const results = await Promise.all(tasks.map((task) => dispatch(task.capability, task.payload)));
+      const results = await n04SuperGpu.map(tasks, (task) => dispatch(task.capability, task.payload), 'internal');
       return { nucleus: 'N04', protocol: 'soul-mesh/1', receivedAt: Date.now(), context: input.context ?? payload, results };
     },
 
@@ -189,7 +190,7 @@ export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOpt
     async 'batch.process'(payload) {
       const input = assertObject(payload, 'BATCH_PROCESS_PAYLOAD');
       const tasks = Array.isArray(input.tasks) ? input.tasks as Task[] : [];
-      return { ok: true, results: await Promise.all(tasks.map((task) => dispatch(task.capability, task.payload))) };
+      return { ok: true, results: await n04SuperGpu.map(tasks, (task) => dispatch(task.capability, task.payload), 'batch') };
     },
 
     async 'document.create'(payload) { return executeTool({ tool: 'createDocument', arguments: payload }); },
@@ -220,7 +221,7 @@ export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOpt
       const input = assertObject(payload, 'PARALLEL_MAP_PAYLOAD');
       const capability = String(input.capability ?? 'tool.run');
       const items = Array.isArray(input.items) ? input.items : [];
-      return { ok: true, results: await Promise.all(items.map((item) => dispatch(capability, item))) };
+      return { ok: true, results: await n04SuperGpu.map(items, (item) => dispatch(capability, item), 'batch') };
     },
 
     'mesh.ping'(payload) { return { ok: true, nucleus: 'N04', echoed: payload, processedAt: Date.now() }; },
