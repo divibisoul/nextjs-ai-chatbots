@@ -22,3 +22,5 @@ jobs:
         run: pnpm exec tsc -p tsconfig.mesh.json --noEmit
       - name: Run N04 Mesh contract tests
         run: pnpm run test:n04
+      - name: Build N04 web runtime
+        run: pnpm run build
