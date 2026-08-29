@@ -21,11 +21,7 @@ type Job<T> = {
   reject: (error: unknown) => void;
 };
 
-/**
- * N04 software acceleration fabric. It is intentionally runtime-neutral:
- * it accelerates I/O-bound orchestration and bounded CPU work without
- * pretending that ordinary Node.js execution is physical GPU compute.
- */
+/** N04 software acceleration fabric for bounded parallel orchestration. */
 export class N04SuperGpuEngine {
   private readonly queue: Job<unknown>[] = [];
   private active = 0;
@@ -40,7 +36,8 @@ export class N04SuperGpuEngine {
   constructor(options: { capacity?: number; timeoutMs?: number } = {}) {
     const detected = availableParallelism();
     const configured = Number(process.env.N04_SUPER_GPU_CAPACITY ?? detected);
-    this.capacity = Math.max(1, Math.min(options.capacity ?? (Number.isFinite(configured) ? configured : detected), 64));
+    const requested = options.capacity ?? (Number.isFinite(configured) ? configured : detected);
+    this.capacity = Math.max(1, Math.min(requested, 64));
     const timeout = options.timeoutMs ?? Number(process.env.N04_SUPER_GPU_TIMEOUT_MS ?? 30000);
     this.timeoutMs = Math.max(1000, Number.isFinite(timeout) ? timeout : 30000);
   }
@@ -69,13 +66,19 @@ export class N04SuperGpuEngine {
       const job = this.queue.shift()!;
       this.active += 1;
       let settled = false;
+      let released = false;
+      const release = () => {
+        if (released) return;
+        released = true;
+        this.active = Math.max(0, this.active - 1);
+        this.drain();
+      };
       const timer = setTimeout(() => {
         if (settled) return;
         settled = true;
         this.timedOut += 1;
-        this.active -= 1;
         job.reject(new Error(`N04_SUPER_GPU_TIMEOUT:${job.timeoutMs}`));
-        this.drain();
+        release();
       }, job.timeoutMs);
       Promise.resolve().then(job.run).then((value) => {
         if (settled) return;
@@ -89,10 +92,7 @@ export class N04SuperGpuEngine {
         job.reject(error);
       }).finally(() => {
         clearTimeout(timer);
-        if (settled) {
-          this.active = Math.max(0, this.active - 1);
-          this.drain();
-        }
+        release();
       });
     }
   }
