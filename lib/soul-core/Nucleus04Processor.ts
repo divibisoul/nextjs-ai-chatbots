@@ -4,6 +4,7 @@ import { NUCLEUS_04_CAPABILITIES } from './Nucleus04Capabilities';
 import { createNucleus04MeshHandlers } from './Nucleus04MeshRuntime';
 import { n04Cache } from './N04Cache';
 import { N04PriorityQueue, type N04Priority } from './N04PriorityQueue';
+import { n04SuperGpu } from './N04SuperGpuEngine';
 import { delegateWork, isKnownN04Peer, offerCapabilities, requestSupport } from '../soul-mesh/N04CooperativeMesh';
 
 export interface Nucleus04Context { session?: Session | null; dataStream?: unknown; metadata?: Record<string, unknown>; }
@@ -70,11 +71,12 @@ export class Nucleus04Processor {
     const priority: N04Priority = source === 'N01' || source === 'N02' || source === 'N03' || source === 'N05' || source === 'N06'
       ? 'mesh'
       : ['batch.process', 'parallel.map'].includes(request.capability) ? 'batch' : 'internal';
+    const gpuPriority = priority === 'mesh' ? 'mesh' : priority === 'batch' ? 'batch' : 'internal';
     const cacheable = ['ai-pilot', 'environment.weather', 'mesh.describe', 'core.health'].includes(request.capability);
     const run = () => cacheable
       ? n04Cache.getOrSet(`${request.capability}:${stableSerialize(request.input)}`, () => handler(request.input, context))
       : handler(request.input, context);
-    return this.queue.add(run, priority);
+    return n04SuperGpu.submit(() => this.queue.add(run, priority), gpuPriority);
   }
 
   accept(request: Nucleus04Request): Nucleus04Result {
