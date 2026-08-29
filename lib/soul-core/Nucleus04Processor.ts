@@ -4,12 +4,23 @@ import { NUCLEUS_04_CAPABILITIES } from './Nucleus04Capabilities';
 import { createNucleus04MeshHandlers } from './Nucleus04MeshRuntime';
 import { n04Cache } from './N04Cache';
 import { N04PriorityQueue } from './N04PriorityQueue';
+import {
+  delegateWork,
+  isKnownN04Peer,
+  offerCapabilities,
+  requestSupport,
+} from '../soul-mesh/N04CooperativeMesh';
 
 export interface Nucleus04Context { session?: Session | null; dataStream?: unknown; metadata?: Record<string, unknown>; }
 export interface Nucleus04Request { capability: Nucleus04Capability; input: unknown; requestId?: string; }
 export interface Nucleus04Result { requestId: string; nucleus: 'nucleus-04'; capability: Nucleus04Capability; accepted: true; input: unknown; }
 export interface Nucleus04Pilot { id: string; execute(input: unknown, context?: Nucleus04Context): Promise<unknown>; }
 export type Nucleus04CapabilityHandler = (input: unknown, context?: Nucleus04Context) => Promise<unknown>;
+
+function objectInput(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('N04_MESH_INPUT_MUST_BE_OBJECT');
+  return value as Record<string, unknown>;
+}
 
 /** Runtime boundary for N04. Advertised capabilities are bound to the real Mesh runtime. */
 export class Nucleus04Processor {
@@ -25,6 +36,36 @@ export class Nucleus04Processor {
       const handler = runtime[capability];
       if (handler) this.registerHandler(capability, async (input) => handler(input));
     }
+
+    const baseMeshHandler = this.handlers.get('mesh-communication');
+    this.registerHandler('mesh-communication', async (input, context) => {
+      const request = objectInput(input);
+      const target = String(request.target ?? '');
+      if (!isKnownN04Peer(target)) throw new Error(`INVALID_MESH_PEER:${target}`);
+
+      const action = typeof request.action === 'string' ? request.action : 'request';
+      if (action === 'offer') {
+        const capabilities = Array.isArray(request.capabilities)
+          ? request.capabilities.filter((value): value is string => typeof value === 'string')
+          : [...this.capabilities];
+        return offerCapabilities(target, capabilities);
+      }
+
+      if (typeof request.capability !== 'string' || !request.capability.trim()) {
+        throw new Error('MESH_CAPABILITY_REQUIRED');
+      }
+
+      if (action === 'support' || action === 'request') {
+        return requestSupport(target, request.capability, request.payload, typeof request.reason === 'string' ? request.reason : undefined);
+      }
+
+      if (action === 'delegate') {
+        return delegateWork(target, request.capability, request.payload, typeof request.reason === 'string' ? request.reason : undefined);
+      }
+
+      if (baseMeshHandler) return baseMeshHandler(input, context);
+      throw new Error('N04_MESH_HANDLER_UNAVAILABLE');
+    });
   }
 
   registerHandler(capability: Nucleus04Capability, handler: Nucleus04CapabilityHandler) {
