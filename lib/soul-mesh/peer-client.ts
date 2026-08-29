@@ -42,7 +42,18 @@ function retryable(status: number): boolean {
   return status === 408 || status === 425 || status === 429 || status >= 500;
 }
 
-async function attempt(target: N04Peer, url: string, message: SoulMeshMessage, timeoutMs: number): Promise<{ response: Response; body: unknown }> {
+function retryDelay(attemptNumber: number): number {
+  const base = 150 * 2 ** Math.max(0, attemptNumber - 1);
+  const jitter = Math.floor(Math.random() * 50);
+  return base + jitter;
+}
+
+async function attempt(
+  target: N04Peer,
+  url: string,
+  message: SoulMeshMessage,
+  timeoutMs: number,
+): Promise<{ response: Response; body: unknown }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -58,12 +69,22 @@ async function attempt(target: N04Peer, url: string, message: SoulMeshMessage, t
       body: JSON.stringify(message),
       signal: controller.signal,
     });
+
     let body: unknown;
-    try { body = await response.json(); } catch { throw new Error('SOUL_MESH_INVALID_JSON'); }
+    try {
+      body = await response.json();
+    } catch {
+      throw new Error(`SOUL_MESH_INVALID_JSON:${response.status}`);
+    }
     return { response, body };
   } finally {
     clearTimeout(timer);
   }
+}
+
+function shouldRetryNetworkError(error: unknown): boolean {
+  if (!(error instanceof Error)) return true;
+  return error.name === 'AbortError' || error.message.startsWith('fetch failed') || error.message.startsWith('SOUL_MESH_INVALID_JSON:5');
 }
 
 export async function sendTo(
@@ -79,8 +100,15 @@ export async function sendTo(
   if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 3) throw new Error('SOUL_MESH_INVALID_ATTEMPTS');
 
   const message: SoulMeshMessage = {
-    protocol: 'soul-mesh/1', id: randomUUID(), correlationId: randomUUID(), source: NUCLEUS_ID,
-    target, kind: 'request', capability, payload, timestamp: Date.now(),
+    protocol: 'soul-mesh/1',
+    id: randomUUID(),
+    correlationId: randomUUID(),
+    source: NUCLEUS_ID,
+    target,
+    kind: 'request',
+    capability,
+    payload,
+    timestamp: Date.now(),
   };
 
   let lastError: unknown;
@@ -88,20 +116,22 @@ export async function sendTo(
     try {
       const { response, body } = await attempt(target, url, message, timeoutMs);
       assertResponse(message, body);
+
       if (!response.ok || body.kind === 'error') {
         if (attemptNumber < maxAttempts && retryable(response.status)) {
-          await new Promise((resolve) => setTimeout(resolve, 150 * 2 ** (attemptNumber - 1)));
+          await new Promise((resolve) => setTimeout(resolve, retryDelay(attemptNumber)));
           continue;
         }
         throw new Error(`SOUL_MESH_REMOTE_ERROR:${target}:${response.status}`);
       }
+
       return body;
     } catch (error) {
       lastError = error;
-      if (attemptNumber < maxAttempts) {
-        await new Promise((resolve) => setTimeout(resolve, 150 * 2 ** (attemptNumber - 1)));
-        continue;
+      if (attemptNumber >= maxAttempts || !shouldRetryNetworkError(error)) {
+        throw error instanceof Error ? error : new Error(`SOUL_MESH_REQUEST_FAILED:${target}`);
       }
+      await new Promise((resolve) => setTimeout(resolve, retryDelay(attemptNumber)));
     }
   }
 
