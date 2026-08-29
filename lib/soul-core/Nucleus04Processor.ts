@@ -1,96 +1,100 @@
+import type { Session } from 'next-auth';
 import type { Nucleus04Capability } from './Nucleus04Capabilities';
 import { NUCLEUS_04_CAPABILITIES } from './Nucleus04Capabilities';
+import { createNucleus04MeshHandlers } from './Nucleus04MeshRuntime';
+import { n04Cache } from './N04Cache';
+import { N04PriorityQueue } from './N04PriorityQueue';
+import {
+  delegateWork,
+  isKnownN04Peer,
+  offerCapabilities,
+  requestSupport,
+} from '../soul-mesh/N04CooperativeMesh';
 
-export interface Nucleus04Context {
-  session?: unknown;
-  dataStream?: unknown;
-  metadata?: Record<string, unknown>;
+export interface Nucleus04Context { session?: Session | null; dataStream?: unknown; metadata?: Record<string, unknown>; }
+export interface Nucleus04Request { capability: Nucleus04Capability; input: unknown; requestId?: string; }
+export interface Nucleus04Result { requestId: string; nucleus: 'nucleus-04'; capability: Nucleus04Capability; accepted: true; input: unknown; }
+export interface Nucleus04Pilot { id: string; execute(input: unknown, context?: Nucleus04Context): Promise<unknown>; }
+export type Nucleus04CapabilityHandler = (input: unknown, context?: Nucleus04Context) => Promise<unknown>;
+
+function objectInput(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('N04_MESH_INPUT_MUST_BE_OBJECT');
+  return value as Record<string, unknown>;
 }
 
-export interface Nucleus04Request {
-  capability: Nucleus04Capability;
-  input: unknown;
-  requestId?: string;
-}
-
-export interface Nucleus04Result {
-  requestId: string;
-  nucleus: 'nucleus-04';
-  capability: Nucleus04Capability;
-  accepted: true;
-  input: unknown;
-}
-
-export interface Nucleus04Pilot {
-  id: string;
-  execute(input: unknown, context?: Nucleus04Context): Promise<unknown>;
-}
-
-export type Nucleus04CapabilityHandler = (
-  input: unknown,
-  context?: Nucleus04Context,
-) => Promise<unknown>;
-
-/**
- * Runtime boundary for Nucleus 04. The processor is provider-neutral: AI
- * providers, tools and Mesh transports attach through explicit adapters.
- */
+/** Runtime boundary for N04. Advertised capabilities are bound to the real Mesh runtime. */
 export class Nucleus04Processor {
   readonly id = 'nucleus-04' as const;
   readonly capabilities = NUCLEUS_04_CAPABILITIES;
   private readonly handlers = new Map<string, Nucleus04CapabilityHandler>();
+  private readonly queue = new N04PriorityQueue(Math.max(1, Number(process.env.N04_HANDLER_CONCURRENCY ?? 4)));
   private pilot?: Nucleus04Pilot;
+
+  constructor(options: { session?: Session | null } = {}) {
+    const runtime = createNucleus04MeshHandlers({ session: options.session });
+    for (const capability of this.capabilities) {
+      const handler = runtime[capability];
+      if (handler) this.registerHandler(capability, async (input) => handler(input));
+    }
+
+    const baseMeshHandler = this.handlers.get('mesh-communication');
+    this.registerHandler('mesh-communication', async (input, context) => {
+      const request = objectInput(input);
+      const target = String(request.target ?? '');
+      if (!isKnownN04Peer(target)) throw new Error(`INVALID_MESH_PEER:${target}`);
+
+      const action = typeof request.action === 'string' ? request.action : 'request';
+      if (action === 'offer') {
+        const capabilities = Array.isArray(request.capabilities)
+          ? request.capabilities.filter((value): value is string => typeof value === 'string')
+          : [...this.capabilities];
+        return offerCapabilities(target, capabilities);
+      }
+
+      if (typeof request.capability !== 'string' || !request.capability.trim()) {
+        throw new Error('MESH_CAPABILITY_REQUIRED');
+      }
+
+      if (action === 'support' || action === 'request') {
+        return requestSupport(target, request.capability, request.payload, typeof request.reason === 'string' ? request.reason : undefined);
+      }
+
+      if (action === 'delegate') {
+        return delegateWork(target, request.capability, request.payload, typeof request.reason === 'string' ? request.reason : undefined);
+      }
+
+      if (baseMeshHandler) return baseMeshHandler(input, context);
+      throw new Error('N04_MESH_HANDLER_UNAVAILABLE');
+    });
+  }
 
   registerHandler(capability: Nucleus04Capability, handler: Nucleus04CapabilityHandler) {
     this.handlers.set(capability, handler);
     return this;
   }
 
-  registerPilot(pilot: Nucleus04Pilot) {
-    this.pilot = pilot;
-    return this;
-  }
-
-  getPilot() {
-    return this.pilot;
-  }
-
-  supports(capability: string): capability is Nucleus04Capability {
-    return (this.capabilities as readonly string[]).includes(capability);
-  }
+  registerPilot(pilot: Nucleus04Pilot) { this.pilot = pilot; return this; }
+  getPilot() { return this.pilot; }
+  supports(capability: string): capability is Nucleus04Capability { return (this.capabilities as readonly string[]).includes(capability); }
 
   async execute(request: Nucleus04Request, context?: Nucleus04Context) {
-    if (!this.supports(request.capability)) {
-      throw new Error(`Unsupported Nucleus 04 capability: ${request.capability}`);
-    }
-
-    if (request.capability === 'ai-pilot') {
-      if (!this.pilot) throw new Error('No AI pilot is connected to Nucleus 04');
-      return this.pilot.execute(request.input, context);
-    }
-
+    if (!this.supports(request.capability)) throw new Error(`Unsupported Nucleus 04 capability: ${request.capability}`);
+    if (request.capability === 'ai-pilot' && this.pilot) return this.pilot.execute(request.input, context);
     const handler = this.handlers.get(request.capability);
-    if (!handler) {
-      throw new Error(`Capability is registered but has no runtime handler: ${request.capability}`);
-    }
+    if (!handler) throw new Error(`N04_CAPABILITY_HANDLER_MISSING:${request.capability}`);
 
-    return handler(request.input, context);
+    const priority = context?.metadata?.source === 'N01' ? 'mesh' : 'internal';
+    const cacheable = ['ai-pilot', 'environment.weather', 'context-orchestration', 'mesh.describe', 'core.health'].includes(request.capability);
+    const run = () => cacheable
+      ? n04Cache.getOrSet(`${request.capability}:${JSON.stringify(request.input)}`, () => handler(request.input, context))
+      : handler(request.input, context);
+    return this.queue.add(run, priority);
   }
 
   accept(request: Nucleus04Request): Nucleus04Result {
-    if (!this.supports(request.capability)) {
-      throw new Error(`Unsupported Nucleus 04 capability: ${request.capability}`);
-    }
-
-    return {
-      requestId: request.requestId ?? crypto.randomUUID(),
-      nucleus: this.id,
-      capability: request.capability,
-      accepted: true,
-      input: request.input,
-    };
+    if (!this.supports(request.capability)) throw new Error(`Unsupported Nucleus 04 capability: ${request.capability}`);
+    return { requestId: request.requestId ?? crypto.randomUUID(), nucleus: this.id, capability: request.capability, accepted: true, input: request.input };
   }
 }
 
-/** Backwards-compatible process instance for local consumers. */
 export const nucleus04Processor = new Nucleus04Processor();

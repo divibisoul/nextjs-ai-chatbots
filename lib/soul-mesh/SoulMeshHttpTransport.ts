@@ -1,5 +1,6 @@
 import type { SoulMeshMessage, SoulMeshTransport } from './SoulMeshProtocol';
 export class SoulMeshHttpTransport implements SoulMeshTransport {
+  readonly kind = 'HTTP' as const;
   private listeners = new Set<(message: SoulMeshMessage) => void | Promise<void>>();
   constructor(private readonly endpoint: string, private readonly headers: Record<string, string> = {}) {}
   async send(message: SoulMeshMessage): Promise<void> { const response = await fetch(this.endpoint, { method: 'POST', headers: { 'content-type': 'application/json', ...this.headers }, body: JSON.stringify(message) }); if (!response.ok) throw new Error(`Soul Mesh transport failed: ${response.status}`); }
