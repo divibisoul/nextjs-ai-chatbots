@@ -6,6 +6,12 @@
 
 N04 is the execution-oriented Soul nucleus and its **Super GPU software architecture**. Its Mesh contract advertises 15 capabilities and the runtime routes those capabilities to real application functions where they exist. The original application remains intact; the N04 layer is additive.
 
+### Permanent engineering rule: every gap becomes work
+
+The N04 build follows a complete-audit rule. Every inspected area — code, configuration, dependency, Mesh, runtime, transport, capability, agent, scheduler, cache, security, tests, CI, documentation or architecture — is compared against the cumulative Soul requirements. An incomplete or weak area is not merely reported: when technically possible it is corrected, completed, strengthened, integrated and documented in the repository. Dependent areas are re-checked after structural changes. Live tests that require multiple running nuclei may remain pending, but that limitation never blocks constructible infrastructure and no test result is fabricated.
+
+This rule is additive to all previous N04 requirements and preserves existing functionality through non-destructive, minimal-diff changes.
+
 ### 15 Mesh capabilities
 
 `ai-pilot`, `tool-execution`, `artifact-processing`, `document-processing`, `context-orchestration`, `streaming`, `mesh-communication`, `batch.process`, `document.create`, `document.edit`, `artifact.analyze`, `tool.run`, `workflow.execute`, `schedule.task`, `parallel.map`.
