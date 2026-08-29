@@ -28,7 +28,9 @@ N04 is an independent AI nucleus. Soul Mesh remains the common protocol/control 
 
 Supported transport families are negotiated per peer: `IN_PROCESS`, `WEBVIEW_BRIDGE`, `LOOPBACK_HTTP`, `HTTP`, and `REALTIME`. The decision is bidirectional and capability-neutral: the transport carries Soul Mesh messages; it does not create a parallel application API.
 
-N04 now exposes an explicit cooperative contract in `lib/soul-mesh/N04CooperativeMesh.ts`. It supports three operational directions over the same Soul Mesh protocol: capability offers to peers, support requests when N04 needs another nucleus, and work delegation when another nucleus owns the requested capability. Every operation retains peer identity, capability, payload, return nucleus and correlation metadata.
+N04 exposes an explicit cooperative contract in `lib/soul-mesh/N04CooperativeMesh.ts`. It supports three operational directions over the same Soul Mesh protocol: capability offers to peers, support requests when N04 needs another nucleus, and work delegation when another nucleus owns the requested capability. Every operation retains peer identity, capability, payload, return nucleus and correlation metadata.
+
+N04 peer routing is environment-driven at request time rather than captured during module import. Each peer may have its own URL and token through `SOUL_MESH_N01_URL` + `SOUL_MESH_N01_TOKEN` through `SOUL_MESH_N06_URL` + `SOUL_MESH_N06_TOKEN`, with `SOUL_MESH_URL_DEFAULT` and `SOUL_MESH_TOKEN` as controlled fallbacks. This permits independently booted IAs to be reconfigured without rebuilding the process.
 
 This means N01–N06 can remain independent IAs while gaining a complete interoperability layer: discovery → transport negotiation → request/support/delegation → capability execution → correlated response. If a preferred transport is unavailable, the existing hybrid fallback mechanism can select another mutually supported transport; if none exists, the system reports that explicitly rather than fabricating connectivity.
 
@@ -38,7 +40,9 @@ A route is not considered a capability implementation merely because it returns 
 
 ## Validation state
 
-GitHub CI is the authoritative build/typecheck/contract validation. Live N01↔N04 communication, provider-backed credentials and real operational audio/document workloads remain environment-dependent validation steps. Their absence does not block structural construction.
+The latest GitHub Actions run for commit `745b428c69372f0261e8f67e8af3eb66fe02d123` failed in the N04 contract-test step after `pnpm install` and TypeScript typecheck succeeded; the web build was skipped because the test step failed. A deterministic Node/tsx test-runner correction was committed as `2f44ef67161da6b36eb78a522d3f58d7452f3185`, followed by dynamic peer routing/authentication hardening in `a5abf0d9050e291f211f913a336ed5fb59f1e3d1`. The new commit must be validated by the next GitHub Actions run before CI can be called green.
+
+Live N01↔N04 communication, provider-backed credentials and real operational workloads remain environment-dependent validation steps. Their absence does not block structural construction.
 
 ## Topology
 
@@ -55,3 +59,5 @@ N04 OUT: N01, N02, N03, N05, N06
 - Hybrid interoperability policy: `383a27b799ddc974f4936ae4ec7152da78de9ef7`
 - Cooperative peer support/delegation: `3f8d88d633d25932a58d5aa8ec42eefef2ffe489`
 - Cooperative correlation hardening: `5237b0281671c419f523959b4bff62b5ac2a2210`
+- Deterministic Mesh contract test runner: `2f44ef67161da6b36eb78a522d3f58d7452f3185`
+- Dynamic peer routing/authentication: `a5abf0d9050e291f211f913a336ed5fb59f1e3d1`
