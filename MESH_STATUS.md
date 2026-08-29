@@ -2,9 +2,34 @@
 
 ## Cumulative audit — 2026-08-29
 
-The N04 repository was re-audited against the cumulative Soul directives: independent AI nucleus, common Soul Mesh interoperability layer, hybrid transport, five IN + five OUT peer topology, capability-to-runtime binding, cooperative offer/request/delegation, Super GPU execution, resilience, documentation and CI discipline.
+The N04 repository is governed by the cumulative Soul directives: independent AI nucleus, common Soul Mesh interoperability layer, hybrid transport, five IN + five OUT peer topology, capability-to-runtime binding, cooperative offer/request/delegation, Super GPU execution, resilience, documentation and CI discipline.
 
-### Structural state
+## Permanent engineering directive — audit, complete, evolve, verify
+
+This directive is additive and does not cancel or replace any previous N04 requirement.
+
+For **every area inspected**, regardless of whether it is code, configuration, dependency, Mesh, runtime, transport, capability, agent, scheduler, cache, security, tests, CI, documentation or architecture:
+
+1. Inspect the real repository state before making assumptions.
+2. Compare the area against the complete cumulative Soul requirements.
+3. If incomplete, identify the concrete gap and its dependencies.
+4. **Correct it in the repository immediately** when technically possible.
+5. If the implementation is weak, do not stop at the minimum fix: strengthen, optimize and integrate it while preserving existing behavior.
+6. If a required mechanism is absent, add the smallest robust implementation that fits the existing architecture; do not create a parallel application API merely to bypass the Mesh.
+7. Re-check dependent areas after every structural correction so that fixing one component does not leave another disconnected.
+8. Document the resulting implementation and its validation state.
+9. Only mark an area complete when its repository implementation is complete and internally coherent.
+10. Distinguish structural verification from live operational validation. A live test that cannot currently be executed is recorded as pending; it is **never** used as an excuse to leave constructible infrastructure incomplete, and its result is never fabricated.
+
+### Completion rule
+
+The N04 audit is not complete when the first error is found or when a single CI job passes. It is complete only after the entire nucleus has been traversed against the cumulative requirements and every constructible divergence has been corrected, strengthened, integrated and documented.
+
+### Non-destructive rule
+
+Corrections are additive or minimal-diff changes. Existing working functionality, the hybrid transport contract, the canonical Soul Mesh envelope and the independent-AI model must be preserved. No destructive reset or replacement of the richer N04 architecture is authorized merely to make a check green.
+
+## Structural state
 
 - 15 capability contract: DECLARED AND ROUTED.
 - Runtime binding: the advertised N04 capabilities are bound to concrete runtime handlers; unsupported provider-level features remain explicit rather than being represented as fake success.
