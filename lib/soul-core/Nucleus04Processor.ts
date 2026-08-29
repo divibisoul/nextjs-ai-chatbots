@@ -11,7 +11,17 @@ export interface Nucleus04Result { requestId: string; nucleus: 'nucleus-04'; cap
 export interface Nucleus04Pilot { id: string; execute(input: unknown, context?: Nucleus04Context): Promise<unknown>; }
 export type Nucleus04CapabilityHandler = (input: unknown, context?: Nucleus04Context) => Promise<unknown>;
 
-/** Runtime boundary for N04. All advertised capabilities have an explicit handler. */
+const NON_CACHEABLE = new Set<Nucleus04Capability>([
+  'mesh-communication',
+  'streaming',
+  'schedule.task',
+  'workflow.execute',
+  'batch.process',
+  'parallel.map',
+  'tool-execution',
+  'tool.run',
+]);
+
 export class Nucleus04Processor {
   readonly id = 'nucleus-04' as const;
   readonly capabilities = NUCLEUS_04_CAPABILITIES;
@@ -24,28 +34,27 @@ export class Nucleus04Processor {
     this.registerHandler('artifact-processing', (input) => n04WorkerPool.run({ kind: 'artifact', input }));
     this.registerHandler('document-processing', (input) => n04WorkerPool.run({ kind: 'document', input }));
     this.registerHandler('context-orchestration', async (input) => {
-      const workflow = input as { tasks?: Array<{ kind: 'document'|'artifact'|'tool'; input: unknown }> };
+      const workflow = input as { tasks?: Array<{ kind: 'document' | 'artifact' | 'tool'; input: unknown }> };
       return n04TaskOrchestrator.execute({ tasks: workflow.tasks ?? [] });
     });
     this.registerHandler('streaming', async (input) => ({ ok: true, mode: 'streaming', input }));
     this.registerHandler('mesh-communication', async (input) => ({ ok: true, mode: 'mesh', input }));
     this.registerHandler('batch.process', async (input) => {
-      const tasks = (input as { tasks?: Array<{ kind: 'document'|'artifact'|'tool'; input: unknown }> }).tasks ?? [];
+      const tasks = (input as { tasks?: Array<{ kind: 'document' | 'artifact' | 'tool'; input: unknown }> }).tasks ?? [];
       return n04TaskOrchestrator.execute({ tasks });
     });
     this.registerHandler('document.create', async (input) => n04WorkerPool.run({ kind: 'document', input: { operation: 'create', input } }));
     this.registerHandler('document.edit', async (input) => n04WorkerPool.run({ kind: 'document', input: { operation: 'edit', input } }));
     this.registerHandler('artifact.analyze', async (input) => n04WorkerPool.run({ kind: 'artifact', input: { operation: 'analyze', input } }));
     this.registerHandler('tool.run', async (input) => n04WorkerPool.run({ kind: 'tool', input: { operation: 'run', input } }));
-    this.registerHandler('workflow.execute', async (input) => n04TaskOrchestrator.execute(input as { tasks: Array<{ kind: 'document'|'artifact'|'tool'; input: unknown }> }));
+    this.registerHandler('workflow.execute', async (input) => n04TaskOrchestrator.execute(input as { tasks: Array<{ kind: 'document' | 'artifact' | 'tool'; input: unknown }> }));
     this.registerHandler('schedule.task', async (input) => {
       const task = input as { delayMs?: number; capability?: Nucleus04Capability; input?: unknown };
-      const delay = Math.max(0, task.delayMs ?? 0);
-      return new Promise((resolve) => setTimeout(() => resolve({ scheduled: true, capability: task.capability, input: task.input }), delay));
+      return new Promise((resolve) => setTimeout(() => resolve({ scheduled: true, capability: task.capability, input: task.input }), Math.max(0, task.delayMs ?? 0)));
     });
     this.registerHandler('parallel.map', async (input) => {
-      const value = input as { kind?: 'document'|'artifact'|'tool'; items?: unknown[] };
-      return n04WorkerPool.map(value.kind ?? 'tool', value.items ?? []);
+      const value = input as { kind?: 'document' | 'artifact' | 'tool'; items?: unknown[] };
+      return n04WorkerPool.map(value.kind ?? 'tool', value.items ?? [], { priority: 'low' });
     });
   }
 
@@ -63,7 +72,12 @@ export class Nucleus04Processor {
     const handler = this.handlers.get(request.capability);
     if (!handler) throw new Error(`N04_CAPABILITY_HANDLER_MISSING:${request.capability}`);
     const priority = context?.metadata?.source === 'N01' ? 'mesh' : 'internal';
-    return this.queue.add(() => n04Cache.getOrSet(`${request.capability}:${JSON.stringify(request.input)}`, () => handler(request.input, context)), priority);
+    const execute = () => handler(request.input, context);
+    if (NON_CACHEABLE.has(request.capability)) return this.queue.add(execute, priority);
+    let key: string;
+    try { key = `${request.capability}:${JSON.stringify(request.input)}`; }
+    catch { return this.queue.add(execute, priority); }
+    return this.queue.add(() => n04Cache.getOrSet(key, execute), priority);
   }
 
   accept(request: Nucleus04Request): Nucleus04Result {
