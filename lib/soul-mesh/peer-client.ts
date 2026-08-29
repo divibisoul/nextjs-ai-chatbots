@@ -5,13 +5,29 @@ export const NUCLEUS_ID = 'N04' as const;
 export const PEERS = ['N01', 'N02', 'N03', 'N05', 'N06'] as const;
 export type N04Peer = (typeof PEERS)[number];
 
-const urls: Record<N04Peer, string | undefined> = {
-  N01: process.env.SOUL_MESH_N01_URL,
-  N02: process.env.SOUL_MESH_N02_URL,
-  N03: process.env.SOUL_MESH_N03_URL,
-  N05: process.env.SOUL_MESH_N05_URL,
-  N06: process.env.SOUL_MESH_N06_URL,
+const URL_ENV: Record<N04Peer, string> = {
+  N01: 'SOUL_MESH_N01_URL',
+  N02: 'SOUL_MESH_N02_URL',
+  N03: 'SOUL_MESH_N03_URL',
+  N05: 'SOUL_MESH_N05_URL',
+  N06: 'SOUL_MESH_N06_URL',
 };
+
+const TOKEN_ENV: Record<N04Peer, string> = {
+  N01: 'SOUL_MESH_N01_TOKEN',
+  N02: 'SOUL_MESH_N02_TOKEN',
+  N03: 'SOUL_MESH_N03_TOKEN',
+  N05: 'SOUL_MESH_N05_TOKEN',
+  N06: 'SOUL_MESH_N06_TOKEN',
+};
+
+function peerUrl(target: N04Peer): string | undefined {
+  return process.env[URL_ENV[target]] || process.env.SOUL_MESH_URL_DEFAULT;
+}
+
+function peerToken(target: N04Peer): string | undefined {
+  return process.env[TOKEN_ENV[target]] || process.env.SOUL_MESH_TOKEN;
+}
 
 function assertResponse(request: SoulMeshMessage, response: unknown): asserts response is SoulMeshMessage {
   if (!response || typeof response !== 'object') throw new Error('SOUL_MESH_INVALID_RESPONSE');
@@ -26,14 +42,19 @@ function retryable(status: number): boolean {
   return status === 408 || status === 425 || status === 429 || status >= 500;
 }
 
-async function attempt(url: string, message: SoulMeshMessage, timeoutMs: number): Promise<{ response: Response; body: unknown }> {
+async function attempt(target: N04Peer, url: string, message: SoulMeshMessage, timeoutMs: number): Promise<{ response: Response; body: unknown }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const token = process.env.SOUL_MESH_TOKEN;
+    const token = peerToken(target);
     const response = await fetch(url, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
+      headers: {
+        'content-type': 'application/json',
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+        'x-soul-nucleus': NUCLEUS_ID,
+        'x-soul-target': target,
+      },
       body: JSON.stringify(message),
       signal: controller.signal,
     });
@@ -49,10 +70,10 @@ export async function sendTo(
   target: N04Peer,
   capability: string,
   payload: unknown,
-  timeoutMs = 15000,
+  timeoutMs = Number(process.env.SOUL_MESH_TIMEOUT_MS ?? 15000),
   maxAttempts = 2,
 ): Promise<SoulMeshMessage> {
-  const url = urls[target];
+  const url = peerUrl(target);
   if (!url) throw new Error(`SOUL_MESH_PEER_URL_NOT_CONFIGURED:${target}`);
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error('SOUL_MESH_INVALID_TIMEOUT');
   if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 3) throw new Error('SOUL_MESH_INVALID_ATTEMPTS');
@@ -65,7 +86,7 @@ export async function sendTo(
   let lastError: unknown;
   for (let attemptNumber = 1; attemptNumber <= maxAttempts; attemptNumber += 1) {
     try {
-      const { response, body } = await attempt(url, message, timeoutMs);
+      const { response, body } = await attempt(target, url, message, timeoutMs);
       assertResponse(message, body);
       if (!response.ok || body.kind === 'error') {
         if (attemptNumber < maxAttempts && retryable(response.status)) {
