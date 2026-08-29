@@ -8,51 +8,29 @@ The N04 repository is governed by the cumulative Soul directives: independent AI
 
 This directive is additive and does not cancel or replace any previous N04 requirement.
 
-For **every area inspected**, regardless of whether it is code, configuration, dependency, Mesh, runtime, transport, capability, agent, scheduler, cache, security, tests, CI, documentation or architecture:
-
-1. Inspect the real repository state before making assumptions.
-2. Compare the area against the complete cumulative Soul requirements.
-3. If incomplete, identify the concrete gap and its dependencies.
-4. **Correct it in the repository immediately** when technically possible.
-5. If the implementation is weak, do not stop at the minimum fix: strengthen, optimize and integrate it while preserving existing behavior.
-6. If a required mechanism is absent, add the smallest robust implementation that fits the existing architecture; do not create a parallel application API merely to bypass the Mesh.
-7. Re-check dependent areas after every structural correction so that fixing one component does not leave another disconnected.
-8. Document the resulting implementation and its validation state.
-9. Only mark an area complete when its repository implementation is complete and internally coherent.
-10. Distinguish structural verification from live operational validation. A live test that cannot currently be executed is recorded as pending; it is **never** used as an excuse to leave constructible infrastructure incomplete, and its result is never fabricated.
-
-### Completion rule
-
-The N04 audit is not complete when the first error is found or when a single CI job passes. It is complete only after the entire nucleus has been traversed against the cumulative requirements and every constructible divergence has been corrected, strengthened, integrated and documented.
-
-### Non-destructive rule
-
-Corrections are additive or minimal-diff changes. Existing working functionality, the hybrid transport contract, the canonical Soul Mesh envelope and the independent-AI model must be preserved. No destructive reset or replacement of the richer N04 architecture is authorized merely to make a check green.
+For every area inspected — code, configuration, dependency, Mesh, runtime, transport, capability, agent, scheduler, cache, security, tests, CI, documentation or architecture — the real repository state is compared against the cumulative requirements. An incomplete or weak area is corrected, completed, strengthened, integrated and documented whenever technically possible. Existing functionality is preserved through minimal-diff changes. Live multi-nucleus validation is recorded separately and is never fabricated.
 
 ## Structural state
 
 - 15 capability contract: DECLARED AND ROUTED.
-- Runtime binding: the advertised N04 capabilities are bound to concrete runtime handlers; unsupported provider-level features remain explicit rather than being represented as fake success.
-- AI/tool runtime: CONNECTED to the repository's existing AI SDK, model provider and tools.
-- Document runtime: CONNECTED to the existing `createDocument` / `updateDocument` tools.
-- Artifact runtime: CONNECTED to the existing artifact handlers for supported artifact kinds and operations; required session and payload fields are validated.
-- `artifact.analyze`: explicitly limited to the repository's available analyzer functionality; no fabricated external vision engine is claimed.
-- `streaming`: TRANSPORT-BOUND; the existing chat streaming system is preserved and Mesh does not falsely convert a stream into a normal JSON result.
+- Runtime binding: all 15 advertised capabilities now have explicit runtime handlers or explicit transport-bound behavior; no new capability is left to fall through to `CAPABILITY_HANDLER_NOT_REGISTERED`.
+- AI/tool runtime: CONNECTED to the repository's existing AI SDK, provider, models and tools.
+- Document runtime: CONNECTED to the existing document creation/update tools.
+- Artifact runtime: CONNECTED to the existing artifact handlers for supported artifact kinds and operations; `artifact.analyze` reports repository-native metadata/content analysis rather than inventing a vision provider.
+- Streaming: TRANSPORT-BOUND to the existing chat streaming system; Mesh does not fabricate a synchronous stream result.
 - Context orchestration: IMPLEMENTED with concurrent dispatch through the Super GPU scheduler.
-- Batch and `parallel.map`: IMPLEMENTED through the Super GPU scheduler rather than plain unbounded `Promise.all` dispatch.
-- Workflow orchestration: IMPLEMENTED as ordered multi-step dispatch.
+- Batch and `parallel.map`: IMPLEMENTED through bounded Super GPU scheduling.
+- Workflow orchestration: IMPLEMENTED as ordered multi-step capability dispatch.
 - Scheduling: IMPLEMENTED as process-local delayed dispatch; persistence across restarts is intentionally not claimed.
-- Scheduler: strengthened with bounded concurrency, three priority lanes (`mesh`, `internal`, `batch`), FIFO ordering within a lane, and configurable execution timeout.
-- Super GPU execution fabric: IMPLEMENTED as an additive, backend-neutral acceleration layer with bounded parallel capacity, priority scheduling, timeout protection, failure accounting, batch mapping and runtime metrics. Default capacity follows Node `availableParallelism()` and is configurable with `N04_SUPER_GPU_CAPACITY`.
-- Timeout accounting: HARDENED. A timed-out operation no longer falsely frees a Super GPU execution slot while its underlying promise is still running; capacity is released only when execution actually settles. This prevents hidden over-subscription after timeouts.
-- Existing CPU worker pool: PRESERVED for isolated CPU-bound transforms using `worker_threads`; timeout termination releases its slot only after worker termination.
+- Super GPU execution fabric: IMPLEMENTED as bounded parallel software orchestration using Node `availableParallelism()`, three priority lanes, timeout protection, metrics and configurable capacity. This is an execution/acceleration layer, not a claim of physical GPU hardware.
+- Existing worker-thread pool: PRESERVED for isolated CPU-bound transforms; it is not used to fake execution of session-bound application tools.
 - Five IN + five OUT logical topology: CONFIGURED for N01, N02, N03, N05, N06.
-- Cooperative AI architecture: PRESENT. N04 remains an independent IA and uses Soul Mesh as the interoperability/control plane for capability offers, support requests and work delegation.
-- Hybrid transport policy: PRESENT. Supported transport families are negotiated without creating a parallel application API: `IN_PROCESS`, `WEBVIEW_BRIDGE`, `LOOPBACK_HTTP`, `HTTP`, `REALTIME`.
-- Peer routing: environment-driven at request time, with per-peer URL/token and controlled defaults.
-- TTL cache: IMPLEMENTED (5 min default) for selected read/idempotent paths; cache keys use deterministic serialization so object key ordering cannot create accidental misses.
-- Priority semantics: recognized peer Mesh sources receive `mesh` priority; `batch.process` and `parallel.map` use the lowest `batch` lane.
-- README: UPDATED with Super GPU architecture and cooperative-AI model.
+- Cooperative AI architecture: PRESENT. N04 remains an independent IA and can offer capabilities, request support, delegate work and return correlated results through Soul Mesh.
+- Hybrid transport policy: PRESENT for `IN_PROCESS`, `WEBVIEW_BRIDGE`, `LOOPBACK_HTTP`, `HTTP`, `REALTIME` without creating a parallel application API.
+- Outbound peer path: environment-driven per-peer URL/token with retry and correlation validation.
+- Mesh security: token authentication is mandatory by default at the N04 gateway; `MESH_AUTH_DISABLED=true` is the explicit test-only bypass. Optional HMAC signing/verification is available through `SOUL_MESH_HMAC_SECRET` with canonical envelope signing and clock-skew protection.
+- TTL cache: IMPLEMENTED for selected read/idempotent paths with deterministic keys; mutating work is not cached by default.
+- README: UPDATED.
 - ARCHITECTURE.md: PRESENT.
 
 ## Capability reality map
@@ -60,57 +38,44 @@ Corrections are additive or minimal-diff changes. Existing working functionality
 | Capability | Structural implementation |
 |---|---|
 | `ai-pilot` | Existing AI SDK/provider runtime |
-| `tool-execution` | Existing tool runtime |
+| `tool-execution` | Existing controlled tool runtime |
 | `artifact-processing` | Existing artifact handlers |
 | `document-processing` | Existing document tools |
 | `context-orchestration` | Super GPU concurrent dispatcher |
 | `streaming` | Existing chat-stream transport boundary |
 | `mesh-communication` | Hybrid peer transport + cooperative Mesh |
-| `batch.process` | Super GPU batch mapping |
+| `batch.process` | Super GPU bounded batch mapping |
 | `document.create` | Existing document creation tool |
 | `document.edit` | Existing document update tool |
-| `artifact.analyze` | Repository-native artifact metadata/content analysis |
-| `tool.run` | Existing tool runtime |
+| `artifact.analyze` | Repository-native artifact metadata/content analyzer |
+| `tool.run` | Existing controlled tool runtime |
 | `workflow.execute` | Ordered multi-step dispatcher |
 | `schedule.task` | Process-local delayed dispatcher |
-| `parallel.map` | Super GPU parallel mapping |
+| `parallel.map` | Super GPU bounded parallel mapping |
 
-## Architecture rule
+## Cooperative AI model
 
-Each N01–N06 nucleus remains an independent AI with its own agents and capabilities. Soul Mesh is the shared interoperability/control plane. N04 may offer capabilities, request support, delegate work and return correlated results. Hybrid transports carry the canonical Mesh message; no parallel application API is introduced.
-
-## Engineering reality rule
-
-A route is not considered implemented merely because it returns HTTP 200. N04 must resolve a requested capability to a real runtime function. Missing functionality is represented explicitly and never as fabricated successful work.
+Each N01–N06 nucleus remains an independent AI with its own agents and capabilities. Soul Mesh is the shared interoperability/control plane. N04 is therefore both a service provider and a service consumer: it can advertise work it owns, request work from another nucleus when needed, delegate work to a peer and correlate the response back to the originating request.
 
 ## Validation state
 
-Live cross-nucleus communication and provider-backed operational workloads remain environment-dependent validation. Their absence does not block structural construction, consistent with the project's electrical/hydraulic-style build strategy. GitHub Actions is configured for pushes to `main`, pull requests targeting `main`, and manual dispatch.
+GitHub Actions is configured for pushes to `main`, pull requests targeting `main`, and manual dispatch. Structural code changes are being validated through the N04 contract suite and production build in CI. Live N01↔N04 and full K6 communication remains environment-dependent and is intentionally pending until the nuclei can be run together. No live result is fabricated.
 
-PR #5 remains the structural integration PR. The branch and `main` have diverged since the PR was opened; the latest `main` contains later N04 protocol/security work while the structural branch intentionally preserves the richer hybrid transport contract. This divergence must be reconciled before merging; no destructive reset is authorized.
+## Current integration branch
 
-No green CI result is claimed until GitHub reports an actual run for the current branch head.
+`upgrade/n04-cooperative-super-gpu-v1` is the cumulative N04 hardening line built from the latest structural-close state available to this workstream. The repository also contains later divergent N04 protocol/security commits on another line; those changes were audited and the compatible HMAC hardening was integrated here without destructive reset of the Super GPU/cooperative architecture.
 
-## Topology
+## Latest corrections in this workstream
 
-N04 IN: N01, N02, N03, N05, N06
-N04 OUT: N01, N02, N03, N05, N06
-
-## Latest cumulative correction commits
-
-- Super GPU engine: `b00e82c2fd53acb8d998a82caaece72885e5f1c9`
-- Super GPU timeout hardening: `d8949f0c6063ba5a74fe7c0ba74e08fce5d010e7`
-- Processor → Super GPU integration: `d557ebd46f8994e601fad180725b8ff6dee9f438`
-- Super GPU documentation: `e57ee24ec6f31d34faef8546bd67d5f67887980`
-- Timeout capacity correction: `3749a629a3d714ce58e44e1b370bcb1774bd83f4`
-- Batch/parallel Super GPU routing: `f7130042061c131a5f2c8c593cc7e507328daf4f`
-- Super GPU timeout regression test: `481212fab36bb48f04453a66d20cd8bc10518dcc`
+- `15ea683841f44a7ec2ebc5147e4f4155e0457a1d` — register every advertised capability against runtime handlers.
+- `08e63805d0e68a9d721be51b5a7bf1a425e2d736` — add canonical HMAC verification.
+- `3bf3c0532e874f5ae58fb0c9a224c24af5490c5f` — enforce Mesh authentication and optional HMAC at gateway.
+- `7e570aaa990cfc1ac7d762a3775d181e5fc064c2` — sign outbound Mesh envelopes when HMAC is configured.
 
 ## Remaining closure work
 
-1. Obtain a real CI run for the current branch head and correct every reported failure.
-2. Reconcile the branch with later mainline N04 protocol/security changes without losing the hybrid transport architecture or 15-capability work.
-3. Validate N01↔N04 and the other peer paths when the nuclei can be run together.
-4. Validate provider credentials for provider-backed AI workloads.
-5. Exercise at least five representative capabilities through the real gateway.
-6. Only after operational validation passes should N04 be called operationally closed; structural readiness is documented separately.
+1. Obtain and inspect a real CI run for the current branch head; correct every reported failure.
+2. If CI is green, perform live multi-nucleus validation when N01–N06 can be run together.
+3. Validate provider credentials and representative workloads through the real gateway.
+4. Reconcile any remaining divergent mainline protocol changes only when their merge preserves the cumulative N04 architecture.
+5. Operational closure must remain distinct from structural readiness until live validation is available.
