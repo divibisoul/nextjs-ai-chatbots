@@ -1,0 +1,30 @@
+version: 1.0.0
+authority:
+  - capability: "inference.*"
+    owner: "N2"
+    fallback: "N5"
+    consumers: ["N1", "N4", "N6"]
+  - capability: "conversation.*"
+    owner: "N2"
+    fallback: "N5"
+    consumers: ["N1", "N6"]
+  - capability: "audio.*"
+    owner: "N3"
+    fallback: "N1"
+    consumers: ["N1", "N2"]
+  - capability: "document.*"
+    owner: "N4"
+    fallback: "N6"
+    consumers: ["N1", "N5", "N6"]
+  - capability: "tool.*"
+    owner: "N4"
+    fallback: "N6"
+    consumers: ["N1", "N5", "N6"]
+  - capability: "artifact.*"
+    owner: "N4"
+    fallback: "N6"
+    consumers: ["N1"]
+  - capability: "pilot.*"
+    owner: "N6"
+    fallback: "N1"
+    consumers: ["N1", "N2"]
