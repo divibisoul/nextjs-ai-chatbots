@@ -1,4 +1,4 @@
-import { createSoulMeshMessage, negotiateTransport, type SoulMeshTransportKind } from './SoulMeshProtocol';
+import { negotiateTransport, type SoulMeshTransportKind } from './SoulMeshProtocol';
 import { N04_IN_CHANNELS, N04_OUT_CHANNELS, PEERS, sendTo, type N04Peer } from './peer-client';
 
 export type CooperativeAction = 'offer' | 'request' | 'delegate';
@@ -46,47 +46,28 @@ export function negotiateN04Transport(remote: readonly SoulMeshTransportKind[]):
   return negotiateTransport(LOCAL_TRANSPORTS, remote);
 }
 
-export async function offerCapabilities(
-  target: N04Peer,
-  capabilities: readonly string[],
-): Promise<unknown> {
+export async function offerCapabilities(target: N04Peer, capabilities: readonly string[]): Promise<unknown> {
   return sendTo(target, 'mesh.capability.offer', createN04CapabilityOffer(capabilities));
 }
 
-export async function requestSupport(
-  target: N04Peer,
-  capability: string,
-  payload: unknown,
-  reason?: string,
-): Promise<unknown> {
-  const message = createSoulMeshMessage({
-    correlationId: crypto.randomUUID(),
-    source: 'N04',
-    target,
-    kind: 'request',
+export async function requestSupport(target: N04Peer, capability: string, payload: unknown, reason?: string): Promise<unknown> {
+  const correlationId = crypto.randomUUID();
+  const request: N04SupportRequest = {
+    nucleus: 'N04',
+    kind: 'support.request',
     capability,
-    payload: {
-      nucleus: 'N04',
-      kind: 'support.request',
-      capability,
-      payload,
-      reason,
-      returnTo: 'N04',
-      correlationId: crypto.randomUUID(),
-      timestamp: Date.now(),
-    } satisfies N04SupportRequest,
-  });
-  return sendTo(target, message.capability ?? capability, message.payload);
+    payload,
+    reason,
+    returnTo: 'N04',
+    correlationId,
+    timestamp: Date.now(),
+  };
+  return sendTo(target, capability, request);
 }
 
-export async function delegateWork(
-  target: N04Peer,
-  capability: string,
-  payload: unknown,
-  reason?: string,
-): Promise<unknown> {
+export async function delegateWork(target: N04Peer, capability: string, payload: unknown, reason?: string): Promise<unknown> {
   const correlationId = crypto.randomUUID();
-  return sendTo(target, capability, {
+  const request: N04SupportRequest = {
     nucleus: 'N04',
     kind: 'work.delegate',
     capability,
@@ -95,7 +76,8 @@ export async function delegateWork(
     returnTo: 'N04',
     correlationId,
     timestamp: Date.now(),
-  } satisfies N04SupportRequest);
+  };
+  return sendTo(target, capability, request);
 }
 
 export function isKnownN04Peer(value: string): value is N04Peer {
