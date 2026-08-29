@@ -65,7 +65,8 @@ export class N04SuperGpuEngine {
     while (this.active < this.capacity && this.queue.length) {
       const job = this.queue.shift()!;
       this.active += 1;
-      let settled = false;
+      let callerSettled = false;
+      let executionFinished = false;
       let released = false;
       const release = () => {
         if (released) return;
@@ -74,25 +75,27 @@ export class N04SuperGpuEngine {
         this.drain();
       };
       const timer = setTimeout(() => {
-        if (settled) return;
-        settled = true;
+        if (callerSettled) return;
+        callerSettled = true;
         this.timedOut += 1;
         job.reject(new Error(`N04_SUPER_GPU_TIMEOUT:${job.timeoutMs}`));
-        release();
       }, job.timeoutMs);
       Promise.resolve().then(job.run).then((value) => {
-        if (settled) return;
-        settled = true;
-        this.completed += 1;
-        job.resolve(value);
+        if (!callerSettled) {
+          callerSettled = true;
+          this.completed += 1;
+          job.resolve(value);
+        }
       }).catch((error) => {
-        if (settled) return;
-        settled = true;
-        this.failed += 1;
-        job.reject(error);
+        if (!callerSettled) {
+          callerSettled = true;
+          this.failed += 1;
+          job.reject(error);
+        }
       }).finally(() => {
+        executionFinished = true;
         clearTimeout(timer);
-        release();
+        if (executionFinished) release();
       });
     }
   }
