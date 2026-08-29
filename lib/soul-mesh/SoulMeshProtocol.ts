@@ -2,6 +2,8 @@ export const SOUL_MESH_PROTOCOL = 'soul-mesh/1' as const;
 export const SOUL_NUCLEI = ['N01', 'N02', 'N03', 'N04', 'N05', 'N06'] as const;
 export type SoulNucleus = typeof SOUL_NUCLEI[number];
 export type SoulMeshKind = 'request' | 'response' | 'event' | 'error';
+export type SoulMeshTransportKind = 'IN_PROCESS' | 'WEBVIEW_BRIDGE' | 'LOOPBACK_HTTP' | 'HTTP' | 'REALTIME';
+export interface SoulMeshPeerProfile { nucleus: SoulNucleus; transports: readonly SoulMeshTransportKind[]; capabilities: readonly string[]; }
 
 export interface SoulMeshMessage<T = unknown> {
   protocol: typeof SOUL_MESH_PROTOCOL;
@@ -15,20 +17,8 @@ export interface SoulMeshMessage<T = unknown> {
   timestamp: number;
 }
 
-export interface SoulMeshTransport {
-  send(message: SoulMeshMessage): Promise<void>;
-  onMessage(handler: (message: SoulMeshMessage) => void | Promise<void>): () => void;
-}
-
-export function createSoulMeshMessage<T>(input: Omit<SoulMeshMessage<T>, 'protocol' | 'id' | 'timestamp'>): SoulMeshMessage<T> {
-  return {
-    protocol: SOUL_MESH_PROTOCOL,
-    id: crypto.randomUUID(),
-    timestamp: Date.now(),
-    ...input,
-  };
-}
-
+export interface SoulMeshTransport { send(message: SoulMeshMessage): Promise<void>; onMessage(handler: (message: SoulMeshMessage) => void | Promise<void>): () => void; }
+export function createSoulMeshMessage<T>(input: Omit<SoulMeshMessage<T>, 'protocol' | 'id' | 'timestamp'>): SoulMeshMessage<T> { return { protocol: SOUL_MESH_PROTOCOL, id: crypto.randomUUID(), timestamp: Date.now(), ...input }; }
 export function validateSoulMeshMessage(value: unknown): asserts value is SoulMeshMessage {
   if (!value || typeof value !== 'object') throw new Error('INVALID_MESSAGE');
   const m = value as Record<string, unknown>;
@@ -37,16 +27,8 @@ export function validateSoulMeshMessage(value: unknown): asserts value is SoulMe
   if (typeof m.correlationId !== 'string' || !m.correlationId) throw new Error('INVALID_CORRELATION');
   if (!SOUL_NUCLEI.includes(m.source as SoulNucleus) || !SOUL_NUCLEI.includes(m.target as SoulNucleus)) throw new Error('INVALID_NUCLEUS');
   if (m.source === m.target) throw new Error('SELF_ROUTE_NOT_ALLOWED');
-  if (!['request', 'response', 'event', 'error'].includes(m.kind as string)) throw new Error('INVALID_KIND');
+  if (!['request','response','event','error'].includes(m.kind as string)) throw new Error('INVALID_KIND');
   if (m.kind === 'request' && (typeof m.capability !== 'string' || !m.capability.trim())) throw new Error('CAPABILITY_REQUIRED');
   if (typeof m.timestamp !== 'number' || !Number.isFinite(m.timestamp)) throw new Error('INVALID_TIMESTAMP');
 }
-
-export function isSoulMeshMessage(value: unknown): value is SoulMeshMessage {
-  try {
-    validateSoulMeshMessage(value);
-    return true;
-  } catch {
-    return false;
-  }
-}
+export function isSoulMeshMessage(value: unknown): value is SoulMeshMessage { try { validateSoulMeshMessage(value); return true; } catch { return false; } }
