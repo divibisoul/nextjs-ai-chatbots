@@ -26,6 +26,10 @@ function retryable(status: number): boolean {
   return status === 408 || status === 425 || status === 429 || status >= 500;
 }
 
+function retryableError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError';
+}
+
 async function attempt(url: string, message: SoulMeshMessage, timeoutMs: number): Promise<{ response: Response; body: unknown }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -77,10 +81,11 @@ export async function sendTo(
       return body;
     } catch (error) {
       lastError = error;
-      if (attemptNumber < maxAttempts) {
+      if (attemptNumber < maxAttempts && retryableError(error)) {
         await new Promise((resolve) => setTimeout(resolve, 150 * 2 ** (attemptNumber - 1)));
         continue;
       }
+      break;
     }
   }
 
