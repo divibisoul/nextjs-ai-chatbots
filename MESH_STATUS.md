@@ -28,7 +28,9 @@ N04 is an independent AI nucleus. Soul Mesh remains the common protocol/control 
 
 Supported transport families are negotiated per peer: `IN_PROCESS`, `WEBVIEW_BRIDGE`, `LOOPBACK_HTTP`, `HTTP`, and `REALTIME`. The decision is bidirectional and capability-neutral: the transport carries Soul Mesh messages; it does not create a parallel application API.
 
-This means N01–N06 can remain independent IAs while gaining a complete interoperability layer: discovery → transport negotiation → request → capability execution → correlated response. If a preferred transport is unavailable, the existing hybrid fallback mechanism can select another mutually supported transport; if none exists, the system reports that explicitly rather than fabricating connectivity.
+N04 now exposes an explicit cooperative contract in `lib/soul-mesh/N04CooperativeMesh.ts`. It supports three operational directions over the same Soul Mesh protocol: capability offers to peers, support requests when N04 needs another nucleus, and work delegation when another nucleus owns the requested capability. Every operation retains peer identity, capability, payload, return nucleus and correlation metadata.
+
+This means N01–N06 can remain independent IAs while gaining a complete interoperability layer: discovery → transport negotiation → request/support/delegation → capability execution → correlated response. If a preferred transport is unavailable, the existing hybrid fallback mechanism can select another mutually supported transport; if none exists, the system reports that explicitly rather than fabricating connectivity.
 
 ## Engineering reality rule
 
@@ -51,3 +53,5 @@ N04 OUT: N01, N02, N03, N05, N06
 - Runtime handler hardening: `b0264064c94f30e7e096926a0d8028b491aff057`
 - Capability binding regression test: `da2b2227b366c0a292c074352c6c6a1e84b2888d`
 - Hybrid interoperability policy: `383a27b799ddc974f4936ae4ec7152da78de9ef7`
+- Cooperative peer support/delegation: `3f8d88d633d25932a58d5aa8ec42eefef2ffe489`
+- Cooperative correlation hardening: `5237b0281671c419f523959b4bff62b5ac2a2210`
