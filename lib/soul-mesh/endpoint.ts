@@ -5,64 +5,33 @@ export const NUCLEUS_ID = 'N04' as const;
 const NUCLEI = new Set(['N01', 'N02', 'N03', 'N04', 'N05', 'N06']);
 const MAX_PAYLOAD_BYTES = 1_000_000;
 
-export type SoulMeshHandler = (payload: unknown) => Promise<unknown> | unknown;
+export type SoulMeshHandler = (payload: unknown, message?: SoulMeshMessage) => Promise<unknown> | unknown;
 
 function payloadSize(value: unknown): number {
-  try {
-    return new TextEncoder().encode(JSON.stringify(value)).byteLength;
-  } catch {
-    return Number.POSITIVE_INFINITY;
-  }
+  try { return new TextEncoder().encode(JSON.stringify(value)).byteLength; }
+  catch { return Number.POSITIVE_INFINITY; }
 }
 
 export function validateMeshMessage(m: unknown): asserts m is SoulMeshMessage {
   if (!isSoulMeshMessage(m)) throw new Error('INVALID_MESH_MESSAGE');
-  if (!NUCLEI.has(m.source) || !NUCLEI.has(m.target) || m.source === m.target) {
-    throw new Error('INVALID_NUCLEUS_ROUTE');
-  }
+  if (!NUCLEI.has(m.source) || !NUCLEI.has(m.target) || m.source === m.target) throw new Error('INVALID_NUCLEUS_ROUTE');
   if (m.target !== NUCLEUS_ID) throw new Error('WRONG_TARGET');
   if (!m.capability && m.kind !== 'event') throw new Error('MISSING_CAPABILITY');
   if (payloadSize(m.payload) > MAX_PAYLOAD_BYTES) throw new Error('MESH_PAYLOAD_TOO_LARGE');
 }
 
 function result(message: SoulMeshMessage, payload: unknown, kind: SoulMeshMessage['kind'] = 'response'): SoulMeshMessage {
-  return {
-    protocol: 'soul-mesh/1',
-    id: crypto.randomUUID(),
-    correlationId: message.correlationId,
-    source: NUCLEUS_ID,
-    target: message.source,
-    kind,
-    capability: message.capability,
-    payload,
-    timestamp: Date.now(),
-  };
+  return { protocol: 'soul-mesh/1', id: crypto.randomUUID(), correlationId: message.correlationId, source: NUCLEUS_ID, target: message.source, kind, capability: message.capability, payload, timestamp: Date.now() };
 }
 
-/** N04 runtime dispatcher. The Mesh contract is independent from provider/tool implementations. */
-export async function handleMeshMessage(
-  message: SoulMeshMessage,
-  handlers: Record<string, SoulMeshHandler> = {},
-) {
+export async function handleMeshMessage(message: SoulMeshMessage, handlers: Record<string, SoulMeshHandler> = {}) {
   validateMeshMessage(message);
   if (message.kind !== 'request') return message;
-
   const handler = handlers[message.capability ?? ''];
-  if (!handler) {
-    return result(message, {
-      code: 'CAPABILITY_HANDLER_NOT_REGISTERED',
-      nucleus: NUCLEUS_ID,
-      capability: message.capability,
-    }, 'error');
-  }
-
+  if (!handler) return result(message, { code: 'CAPABILITY_HANDLER_NOT_REGISTERED', nucleus: NUCLEUS_ID, capability: message.capability }, 'error');
   try {
-    return result(message, await handler(message.payload));
+    return result(message, await handler(message.payload, message));
   } catch (error) {
-    return result(message, {
-      code: 'CAPABILITY_EXECUTION_ERROR',
-      nucleus: NUCLEUS_ID,
-      detail: error instanceof Error ? error.message : 'Unknown error',
-    }, 'error');
+    return result(message, { code: 'CAPABILITY_EXECUTION_ERROR', nucleus: NUCLEUS_ID, detail: error instanceof Error ? error.message : 'Unknown error' }, 'error');
   }
 }
