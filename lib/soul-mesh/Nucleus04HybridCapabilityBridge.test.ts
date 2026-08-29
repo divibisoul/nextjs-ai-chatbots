@@ -21,12 +21,12 @@ test('N04 hybrid bridge exposes only explicitly registered runtimes', async () =
   assert.equal(calls.length, 1);
 });
 
-test('N04 hybrid bridge registers all non-pilot capabilities without claiming the pilot', () => {
+test('N04 hybrid bridge registers the complete executable capability surface', () => {
   const bridge = new Nucleus04HybridCapabilityBridge({
     execute: async (capability, input) => ({ capability, input }),
   });
   bridge.registerAll();
-  assert.equal(bridge.executableCapabilities().includes('ai-pilot'), false);
+  assert.equal(bridge.executableCapabilities().includes('ai-pilot'), true);
   assert.equal(bridge.executableCapabilities().includes('tool-execution'), true);
   assert.equal(bridge.executableCapabilities().includes('mesh-communication'), true);
 });
