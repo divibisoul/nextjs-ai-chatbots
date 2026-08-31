@@ -1,3 +1,4 @@
+# CI deliberately regenerates the pnpm lockfile when package.json and lockfile drift.
 name: N04 CI
 
 on:
