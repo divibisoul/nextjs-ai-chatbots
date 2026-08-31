@@ -1,5 +1,6 @@
 export type SoulMeshCapability={id:string;version:string;description:string;request:boolean;response:boolean;events:boolean;remote:boolean;owner?:'N02'|'N03'|'N04'|'N06';fallback?:'N01'|'N05'|'N06'};
 export const SOUL_MESH_CAPABILITIES:SoulMeshCapability[]=[
+{id:'mesh.handshake',version:'1.1',description:'N04 canonical Mesh handshake and capability discovery',request:true,response:true,events:false,remote:true,owner:'N04'},
 {id:'ai-pilot',version:'1.1',description:'Provider-neutral AI inference boundary backed by the configured N04 pilot.',request:true,response:true,events:false,remote:true,owner:'N04'},
 {id:'conversation',version:'1.1',description:'Conversational inference through the provider-neutral pilot boundary.',request:true,response:true,events:false,remote:true,owner:'N02',fallback:'N05'},
 {id:'tool-execution',version:'1.1',description:'Execute a registered N04 tool through the controlled tool boundary.',request:true,response:true,events:true,remote:true,owner:'N04',fallback:'N06'},
