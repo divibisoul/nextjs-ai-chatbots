@@ -9,6 +9,14 @@ on:
 jobs:
   n04:
     runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      WEB3_STORAGE_TOKEN: ${{ secrets.WEB3_STORAGE_TOKEN }}
+      POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+      REDIS_URL: ${{ secrets.REDIS_URL }}
+      SOUL_MESH_TOKEN: ${{ secrets.SOUL_MESH_TOKEN }}
+      SOUL_MESH_HMAC_SECRET: ${{ secrets.SOUL_MESH_HMAC_SECRET }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,6 +33,8 @@ jobs:
         run: pnpm install --no-frozen-lockfile
       - name: N04 tests
         run: pnpm run test:n04
+      - name: Web3.Storage adapter test
+        run: pnpm exec tsx --test lib/storage/web3-storage.test.ts
       - name: Typecheck
         run: pnpm exec tsc --noEmit
       - name: Build
