@@ -1,3 +1,4 @@
+# CI deliberately regenerates the pnpm lockfile when package.json and lockfile drift.
 name: N04 CI
 
 on:
@@ -9,20 +10,32 @@ on:
 jobs:
   n04:
     runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      WEB3_STORAGE_TOKEN: ${{ secrets.WEB3_STORAGE_TOKEN }}
+      POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+      REDIS_URL: ${{ secrets.REDIS_URL }}
+      SOUL_MESH_TOKEN: ${{ secrets.SOUL_MESH_TOKEN }}
+      SOUL_MESH_HMAC_SECRET: ${{ secrets.SOUL_MESH_HMAC_SECRET }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Enable pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.3
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
-      - name: Enable pnpm
-        run: corepack enable
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
       - name: N04 tests
         run: pnpm run test:n04
+      - name: Web3.Storage adapter test
+        run: pnpm exec tsx --test lib/storage/web3-storage.test.ts
       - name: Typecheck
         run: pnpm exec tsc --noEmit
       - name: Build
