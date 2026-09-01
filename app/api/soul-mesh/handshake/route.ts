@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { SOUL_MESH_CAPABILITIES, SOUL_MESH_CONTRACT_VERSION } from '@/lib/soul-mesh/SoulMeshCapabilities';
+import { SOUL_MESH_CAPABILITIES } from '@/lib/soul-mesh/SoulMeshCapabilities';
+import { SOUL_MESH_CONTRACT_VERSION } from '@/lib/soul-mesh/SoulMeshProtocol';
 
 const N04_CAPABILITIES = SOUL_MESH_CAPABILITIES.filter((capability) => capability.remote).map((capability) => capability.id);
 const ACCEPTED_SOURCES = new Set(['N01', 'N02', 'N03', 'N05', 'N06', 'N07']);
