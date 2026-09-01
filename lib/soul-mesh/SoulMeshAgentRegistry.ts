@@ -13,8 +13,10 @@ export class SoulMeshAgentRegistry {
   }
 
   async execute(message: SoulMeshMessage): Promise<unknown> {
-    const agent = this.findForCapability(message.capability);
-    if (!agent) throw new Error(`AGENT_NOT_FOUND:${message.capability}`);
+    const capability = message.capability;
+    if (!capability) throw new Error('CAPABILITY_REQUIRED');
+    const agent = this.findForCapability(capability);
+    if (!agent) throw new Error(`AGENT_NOT_FOUND:${capability}`);
     return agent.execute(message);
   }
 
