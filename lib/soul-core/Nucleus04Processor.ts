@@ -105,3 +105,4 @@ export class Nucleus04Processor {
 
 /** Backwards-compatible process instance for local consumers. */
 export const nucleus04Processor = new Nucleus04Processor();
+export type { Nucleus04Capability } from './Nucleus04Capabilities';
