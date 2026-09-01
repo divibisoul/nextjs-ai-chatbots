@@ -8,7 +8,7 @@ import type { Chat } from '@/lib/db/schema';
 import { ChatSDKError } from '@/lib/errors';
 import type { ChatMessage } from '@/lib/types';
 import { createUIMessageStream, JsonToSseTransformStream } from 'ai';
-import { getStreamContext } from '../../route';
+import { getStreamContext } from '@/lib/soul-mesh/stream-context';
 import { differenceInSeconds } from 'date-fns';
 
 export async function GET(
@@ -70,10 +70,6 @@ export async function GET(
     emptyDataStream.pipeThrough(new JsonToSseTransformStream()),
   );
 
-  /*
-   * For when the generation is streaming during SSR
-   * but the resumable stream has concluded at this point.
-   */
   if (!stream) {
     const messages = await getMessagesByChatId({ id: chatId });
     const mostRecentMessage = messages.at(-1);
