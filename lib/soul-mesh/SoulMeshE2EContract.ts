@@ -1,5 +1,5 @@
 import type { SoulMeshMessage, SoulNucleus } from './SoulMeshProtocol';
-import { isSoulMeshMessage } from './SoulMeshProtocol';
+import { isSoulMeshMessage, SOUL_MESH_CONTRACT_VERSION } from './SoulMeshProtocol';
 
 export const SOUL_MESH_PROTOCOL_VERSION = 'soul-mesh/1' as const;
 export const SOUL_MESH_PEER_COUNT = 5;
@@ -14,6 +14,7 @@ export function createMeshRequest(
   const correlationId = crypto.randomUUID();
   return {
     protocol: SOUL_MESH_PROTOCOL_VERSION,
+    contractVersion: SOUL_MESH_CONTRACT_VERSION,
     id: crypto.randomUUID(),
     correlationId,
     source,
@@ -31,6 +32,7 @@ export function validateMeshResponse(
 ): response is SoulMeshMessage {
   if (!isSoulMeshMessage(response)) return false;
   return response.protocol === request.protocol &&
+    response.contractVersion === request.contractVersion &&
     response.correlationId === request.correlationId &&
     response.source === request.target &&
     response.target === request.source &&
