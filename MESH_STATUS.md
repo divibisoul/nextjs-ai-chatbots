@@ -4,6 +4,7 @@
 - Nucleus: N04
 - Role: application, conversation, tool, document and artifact execution
 - Canonical protocol: `soul-mesh/1`
+- Contract: `1.1.0`
 
 ## Existing implementation retained
 - `app/api/soul-mesh/route.ts`: authenticated Mesh request entrypoint.
@@ -12,28 +13,22 @@
 - `lib/soul-mesh/Nucleus04HybridCapabilityBridge.ts`: adapter from existing N04 runtime to Mesh.
 - `lib/soul-mesh/SoulMeshAgentRegistry.ts`: local agent dispatch.
 - `lib/soul-mesh/SoulMeshCapabilities.ts`: canonical N04 remote capabilities.
-- Existing tests and transport registry are preserved.
 
-## Integration correction
-- Previous handshake identified the nucleus as `chatbots` and required `target=chatbots`.
-- This was incompatible with the canonical N01-N06 protocol and prevented N03 from performing a valid N03 -> N04 handshake.
-- Handshake now requires `target=N04`, accepts N01/N02/N03/N05/N06 as peers, and returns N04's actual remotely exposed capabilities and HTTP transport.
-
-## N03 interoperability
-N03 can now discover and handshake with N04 using:
-- endpoint: `/api/soul-mesh/handshake`
-- protocol: `soul-mesh/1`
-- source: `N03`
-- target: `N04`
-
-After handshake, N03 can use the existing `/api/soul-mesh` POST route with a canonical `SoulMeshMessage` and the configured `SOUL_MESH_TOKEN`.
+## Integration state
+- N04 canonical identity: `N04`.
+- Handshake now accepts N01, N02, N03, N05, N06 and N07.
+- When a caller supplies `contractVersion`, N04 rejects versions other than its current `1.1.0` contract rather than silently adapting.
+- N04 remote capabilities are derived from the capability registry; non-remote capabilities are not advertised as remote executors.
 
 ## Acceptance state
-- Existing Mesh infrastructure: PRESENT
-- Existing N04 runtime bridge: PRESENT
-- Canonical N04 identity: CORRECTED
-- N03 handshake compatibility: CORRECTED
-- Real N03 -> N04 runtime E2E: PENDING LIVE PEER EXECUTION
-- CI/build proof: PENDING
+- Mesh infrastructure: PRESENT
+- N04 runtime bridge: PRESENT
+- Canonical identity: VERIFIED IN SOURCE
+- N07 handshake boundary: PREPARED
+- Real N03 -> N04 E2E: PENDING LIVE PEER EXECUTION
+- Real N07 -> N04 E2E: PENDING FINAL N07 FUSION
+- CI/build proof: DEPENDENT ON REPOSITORY ACTION RUNS
 
-No existing N04 capability or runtime was duplicated or removed.
+## Runtime truth
+
+Source-level support is not treated as proof of live integration. A capability becomes operationally accepted only after the real peer is reachable and an end-to-end request/response with preserved correlation succeeds.
