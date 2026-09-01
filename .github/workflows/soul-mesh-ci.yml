@@ -21,7 +21,9 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Typecheck application
+        run: pnpm run typecheck
       - name: Typecheck N04 hybrid Mesh runtime
-        run: pnpm exec tsc -p tsconfig.mesh.json --noEmit
+        run: pnpm run typecheck:mesh
       - name: Run N04 Mesh contract tests
         run: pnpm run test:n04
