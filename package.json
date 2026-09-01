@@ -17,7 +17,9 @@
     "db:check": "drizzle-kit check",
     "db:up": "drizzle-kit up",
     "test": "export PLAYWRIGHT=True && pnpm exec playwright test",
-    "test:n04": "tsx --test lib/soul-core/Nucleus04Processor.test.ts lib/soul-mesh/Nucleus04RuntimeBootstrap.test.ts lib/soul-mesh/SoulMeshE2EContract.test.ts lib/soul-mesh/Nucleus04HybridCapabilityBridge.test.ts lib/soul-mesh/endpoint.test.ts lib/soul-mesh/SoulMeshProtocol.test.ts lib/soul-mesh/SoulMeshTransportMultiplexer.test.ts"
+    "test:n04": "tsx --test lib/soul-core/Nucleus04Processor.test.ts lib/soul-mesh/Nucleus04RuntimeBootstrap.test.ts lib/soul-mesh/SoulMeshE2EContract.test.ts lib/soul-mesh/Nucleus04HybridCapabilityBridge.test.ts lib/soul-mesh/endpoint.test.ts lib/soul-mesh/SoulMeshProtocol.test.ts lib/soul-mesh/SoulMeshTransportMultiplexer.test.ts",
+    "typecheck": "tsc --noEmit",
+    "typecheck:mesh": "tsc -p tsconfig.mesh.json --noEmit"
   },
   "dependencies": {
     "@ai-sdk/provider": "2.0.0-beta.1",
@@ -63,7 +65,7 @@
     "next": "15.3.0-canary.31",
     "next-auth": "5.0.0-beta.25",
     "next-themes": "^0.3.0",
-    "orderedmap": "^2.1.1",
+    "orderedmap": "^2.1.2",
     "papaparse": "^5.5.2",
     "postgres": "^3.4.4",
     "prosemirror-example-setup": "^1.2.3",
@@ -108,6 +110,7 @@
     "eslint-plugin-tailwindcss": "^3.17.5",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
+    "tailwindcss-animate": "^1.0.7",
     "tsx": "^4.19.1",
     "typescript": "^5.6.3"
   },
