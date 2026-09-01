@@ -1,6 +1,5 @@
 import type { SoulMeshMessage } from './SoulMeshProtocol';
 import { isSoulMeshMessage } from './SoulMeshProtocol';
-import { createNucleus04Runtime } from '@/lib/soul-core/Nucleus04Runtime';
 import type { Nucleus04ToolContext } from '@/lib/soul-core/Nucleus04ToolRegistry';
 
 export const NUCLEUS_ID = 'N04' as const;
@@ -52,8 +51,6 @@ function result(message: SoulMeshMessage, payload: unknown, kind: SoulMeshMessag
 }
 
 export function createN04MeshHandler(context?: N04MeshRuntimeContext) {
-  const processor = context ? createNucleus04Runtime(context).processor : null;
-
   return async function handleMeshMessage(
     message: SoulMeshMessage,
     handlers: Record<string, SoulMeshHandler> = {},
@@ -65,7 +62,9 @@ export function createN04MeshHandler(context?: N04MeshRuntimeContext) {
     const handler = handlers[capability];
     try {
       if (handler) return result(message, await handler(message.payload));
-      if (processor) {
+      if (context) {
+        const { createNucleus04Runtime } = await import('@/lib/soul-core/Nucleus04Runtime');
+        const processor = createNucleus04Runtime(context).processor;
         return result(
           message,
           await processor.execute(
