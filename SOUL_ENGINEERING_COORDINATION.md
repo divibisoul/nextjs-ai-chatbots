@@ -17,3 +17,19 @@ Two adjacent fronts may proceed simultaneously when mutations are compatible. Ha
 
 ## Closure
 A nucleus is not complete because code exists or ping/health succeeds. Structural closure requires compatible AI role, agents, tools, capabilities, Mesh ingress/egress, discovery, delegation, correlation, authorization, resilience, observability and CI evidence. Runtime commissioning is separate and must be reported honestly.
+
+## CUMULATIVE MASTER DIRECTIVE
+
+No previous directive is cancelled. Every failure becomes an action through DETECT → DIAGNOSE → RESEARCH → CORRECT → COMPLETE → CONNECT → OPTIMIZE → VALIDATE → DOCUMENT → RE-AUDIT. Research official docs, standards and viable alternatives when blocked; never falsify success and never stop after one failed approach.
+
+Treat the six nuclei as independent IAs and inspect their full surfaces: identity, agents, capabilities, functions, tools, providers, context, memory, execution, inputs, outputs, discovery, delegation, response, security, resilience, tests, CI and performance. Six nuclei imply 15 bidirectional peer pairs and 30 directed logical links, with five IN and five OUT peer relationships per nucleus.
+
+Soul Mesh remains the single interoperability layer. Its functional chain is DISCOVERY → CAPABILITY DISCOVERY → TASK ROUTING → DELEGATION → EXECUTION → RESPONSE → CORRELATION → COMPOSITION. Use adapters for HTTP/REST, WebSocket/realtime, events/PubSub, loopback or internal transport when technically justified; do not create a parallel Mesh.
+
+Cross every pair across agents×agents, tools×tools, capabilities×capabilities, context×context, execution×execution and AI×AI. Only grounded combinations become new capabilities. A composed capability requires explicit name, purpose, owner(s), participants, input, processing, output, dependencies, execution mode, contract, registration, test and documentation.
+
+Enable dynamic agent federation, capability-based delegation, routing by fit/load/latency/availability/priority/cost/dependencies/reliability, safe parallelism, cache reuse and resilient fallback/recovery.
+
+SOUL Super GPU / SuperCompute is logical distributed parallelism: TASK → DECOMPOSITION → SCHEDULER → CAPABILITY ROUTER → PARALLEL EXECUTION → RESULT AGGREGATION → VALIDATION → FINAL RESULT. Use both inter-nucleus and intra-nucleus workers when dependencies permit. N04 remains a primary execution/worker-pool engine but is not the whole Super GPU.
+
+Use graphs as delivery decision aids: coverage, health, execution evidence and latency where measurable. Final delivery requires the actual current HEAD, latest CI, changed files, elapsed time, blockers and honest commissioning state. N07 remains an untouched final target until preceding fronts are stabilized.
