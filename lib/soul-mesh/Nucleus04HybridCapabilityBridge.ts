@@ -11,13 +11,14 @@ export interface N04CapabilityRuntime {
 
 export class Nucleus04HybridCapabilityBridge {
   private readonly runtime: N04CapabilityRuntime;
-  private readonly registered = new Set<Nucleus04Capability>();
+  private readonly registered = new Set<Exclude<Nucleus04Capability, 'ai-pilot'>>();
 
   constructor(runtime: N04CapabilityRuntime) {
     this.runtime = runtime;
   }
 
   register(capability: Exclude<Nucleus04Capability, 'ai-pilot'>) {
+    if (this.registered.has(capability)) return this;
     nucleus04Processor.registerHandler(capability, (input) =>
       this.runtime.execute(capability, input),
     );
@@ -34,7 +35,7 @@ export class Nucleus04HybridCapabilityBridge {
 
   executableCapabilities() {
     return nucleus04Processor.capabilities.filter(
-      (capability) => capability === 'ai-pilot' || this.registered.has(capability),
+      (capability) => capability !== 'ai-pilot' && this.registered.has(capability),
     );
   }
 }
