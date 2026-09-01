@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import type { SoulMeshMessage, SoulNucleus } from './SoulMeshProtocol';
 
-export type N04Peer = Exclude<SoulNucleus, 'N04'>;
+export type N04Peer = Exclude<SoulNucleus, 'N04' | 'N07'>;
 const PEERS: readonly N04Peer[] = ['N01', 'N02', 'N03', 'N05', 'N06'];
 const ENV: Record<N04Peer, string> = { N01: 'SOUL_MESH_N01_URL', N02: 'SOUL_MESH_N02_URL', N03: 'SOUL_MESH_N03_URL', N05: 'SOUL_MESH_N05_URL', N06: 'SOUL_MESH_N06_URL' };
 
