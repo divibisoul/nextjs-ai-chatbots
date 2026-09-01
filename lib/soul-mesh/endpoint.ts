@@ -4,7 +4,7 @@ import type { Nucleus04ToolContext } from '@/lib/soul-core/Nucleus04ToolRegistry
 
 export const NUCLEUS_ID = 'N04' as const;
 export const SOUL_MESH_CONTRACT_VERSION = '1.1.0' as const;
-const NUCLEI = new Set(['N01', 'N02', 'N03', 'N04', 'N05', 'N06']);
+const NUCLEI = new Set(['N01', 'N02', 'N03', 'N04', 'N05', 'N06', 'N07']);
 const MAX_PAYLOAD_BYTES = 1_000_000;
 const MAX_CLOCK_SKEW_MS = 30_000;
 const REPLAY_WINDOW_MS = 5 * 60_000;
@@ -47,6 +47,7 @@ function result(message: SoulMeshMessage, payload: unknown, kind: SoulMeshMessag
     capability: message.capability,
     payload,
     timestamp: Date.now(),
+    meta: { runtime: 'nextjs-ai-chatbots', transport: 'HTTP', encoding: 'json', version: SOUL_MESH_CONTRACT_VERSION, traceId: message.meta?.traceId ?? message.correlationId },
   };
 }
 
