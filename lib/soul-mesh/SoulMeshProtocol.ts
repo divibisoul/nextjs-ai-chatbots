@@ -3,6 +3,12 @@ export const SOUL_MESH_CONTRACT_VERSION = '1.1.0' as const;
 export const SOUL_NUCLEI = ['N01', 'N02', 'N03', 'N04', 'N05', 'N06'] as const;
 export type SoulNucleus = typeof SOUL_NUCLEI[number];
 export type SoulMeshKind = 'request' | 'response' | 'event' | 'error';
+export type SoulMeshTransportKind = 'IN_PROCESS' | 'WEBVIEW_BRIDGE' | 'LOOPBACK_HTTP' | 'HTTP' | 'REALTIME';
+export interface SoulMeshPeerProfile {
+  nucleus: SoulNucleus;
+  transports: readonly SoulMeshTransportKind[];
+  capabilities: readonly string[];
+}
 
 export interface SoulMeshMessage<T = unknown> {
   protocol: typeof SOUL_MESH_PROTOCOL;
@@ -22,7 +28,7 @@ export interface SoulMeshTransport {
   onMessage(handler: (message: SoulMeshMessage) => void | Promise<void>): () => void;
 }
 
-export function createSoulMeshMessage<T>(input: Omit<SoulMeshMessage<T>, 'protocol' | 'contractVersion' | 'id' | 'timestamp'> & { contractVersion?: string }): SoulMeshMessage<T> {
+export function createSoulMeshMessage<T>(input: Omit<SoulMeshMessage<T>, 'protocol' | 'contractVersion' | 'id' | 'timestamp'> & { contractVersion?: typeof SOUL_MESH_CONTRACT_VERSION }): SoulMeshMessage<T> {
   return {
     protocol: SOUL_MESH_PROTOCOL,
     contractVersion: input.contractVersion ?? SOUL_MESH_CONTRACT_VERSION,
