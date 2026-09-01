@@ -16,12 +16,11 @@ test.describe
       }
 
       let request = response.request();
-
-      const chain = [];
+      const chain: string[] = [];
 
       while (request) {
         chain.unshift(request.url());
-        request = request.redirectedFrom();
+        request = request.redirectedFrom() ?? undefined;
       }
 
       expect(chain).toEqual([
@@ -58,12 +57,11 @@ test.describe
       }
 
       let request = response.request();
-
-      const chain = [];
+      const chain: string[] = [];
 
       while (request) {
         chain.unshift(request.url());
-        request = request.redirectedFrom();
+        request = request.redirectedFrom() ?? undefined;
       }
 
       expect(chain).toEqual(['http://localhost:3000/']);
