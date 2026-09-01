@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/app/(auth)/auth';
+import type { UIMessageStreamWriter } from 'ai';
+import type { ChatMessage } from '@/lib/types';
 import type { SoulMeshMessage } from '@/lib/soul-mesh/SoulMeshProtocol';
 import { createN04MeshHandler } from '@/lib/soul-mesh/endpoint';
 
@@ -7,6 +9,10 @@ function authorizationState(request: Request): 'authorized' | 'unauthorized' | '
   const token = process.env.SOUL_MESH_TOKEN?.trim();
   if (!token) return process.env.NODE_ENV === 'production' ? 'misconfigured' : 'authorized';
   return request.headers.get('authorization') === `Bearer ${token}` ? 'authorized' : 'unauthorized';
+}
+
+function createMeshDataStream(): UIMessageStreamWriter<ChatMessage> {
+  return { write: () => undefined } as unknown as UIMessageStreamWriter<ChatMessage>;
 }
 
 export async function POST(request: Request) {
@@ -21,7 +27,7 @@ export async function POST(request: Request) {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ error: 'UNAUTHENTICATED_SESSION' }, { status: 401 });
-    const handleMeshMessage = createN04MeshHandler({ session });
+    const handleMeshMessage = createN04MeshHandler({ session, dataStream: createMeshDataStream() });
     const result = await handleMeshMessage(message);
     return NextResponse.json(result, { status: result.kind === 'error' ? 502 : 200 });
   } catch (error) {
