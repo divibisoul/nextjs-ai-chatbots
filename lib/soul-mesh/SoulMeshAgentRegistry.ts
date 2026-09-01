@@ -1,6 +1,16 @@
 import type { SoulMeshMessage } from './SoulMeshProtocol';
 import type { Nucleus04Agent } from './SoulMeshAgentContract';
 
+export type SoulLocalAgentContext = {
+  kind: 'local';
+  nucleus: 'N04';
+  capability: string;
+  payload: unknown;
+  correlationId: string;
+};
+
+export type SoulAgentExecutionMessage = SoulMeshMessage | SoulLocalAgentContext;
+
 export class SoulMeshAgentRegistry {
   private readonly agents = new Map<string, Nucleus04Agent>();
 
@@ -13,7 +23,16 @@ export class SoulMeshAgentRegistry {
   }
 
   async execute(message: SoulMeshMessage): Promise<unknown> {
-    const capability = message.capability;
+    if (message.source === message.target) throw new Error('SELF_ROUTE_NOT_ALLOWED');
+    return this.executeAgent(message.capability, message);
+  }
+
+  async executeLocal(capability: string, payload: unknown, correlationId = crypto.randomUUID()): Promise<unknown> {
+    const context: SoulLocalAgentContext = { kind: 'local', nucleus: 'N04', capability, payload, correlationId };
+    return this.executeAgent(capability, context);
+  }
+
+  private async executeAgent(capability: string | undefined, message: SoulAgentExecutionMessage): Promise<unknown> {
     if (!capability) throw new Error('CAPABILITY_REQUIRED');
     const agent = this.findForCapability(capability);
     if (!agent) throw new Error(`AGENT_NOT_FOUND:${capability}`);
