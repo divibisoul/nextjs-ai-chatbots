@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/app/(auth)/auth';
 import type { SoulMeshMessage } from '@/lib/soul-mesh/SoulMeshProtocol';
-import { handleMeshMessage } from '@/lib/soul-mesh/endpoint';
-import { createNucleus04MeshHandlers } from '@/lib/soul-core/Nucleus04MeshRuntime';
+import { createN04MeshHandler } from '@/lib/soul-mesh/endpoint';
 
 function authorizationState(request: Request): 'authorized' | 'unauthorized' | 'misconfigured' {
   const token = process.env.SOUL_MESH_TOKEN?.trim();
@@ -21,8 +20,8 @@ export async function POST(request: Request) {
 
   try {
     const session = await auth();
-    const handlers = createNucleus04MeshHandlers({ session });
-    const result = await handleMeshMessage(message, handlers);
+    const handleMeshMessage = createN04MeshHandler({ session });
+    const result = await handleMeshMessage(message);
     return NextResponse.json(result, { status: result.kind === 'error' ? 502 : 200 });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'SOUL_MESH_ERROR' }, { status: 400 });
