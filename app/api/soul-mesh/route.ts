@@ -20,6 +20,7 @@ export async function POST(request: Request) {
 
   try {
     const session = await auth();
+    if (!session) return NextResponse.json({ error: 'UNAUTHENTICATED_SESSION' }, { status: 401 });
     const handleMeshMessage = createN04MeshHandler({ session });
     const result = await handleMeshMessage(message);
     return NextResponse.json(result, { status: result.kind === 'error' ? 502 : 200 });
