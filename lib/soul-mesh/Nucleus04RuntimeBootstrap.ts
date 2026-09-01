@@ -20,7 +20,7 @@ export function bootstrapNucleus04Runtime(
 ): Nucleus04RuntimeStatus {
   nucleus04Processor.registerPilot(pilot);
   const bridge = new Nucleus04HybridCapabilityBridge({
-    execute: (capability, input) => runtime.execute(capability, input),
+    execute: (capability, input) => runtime.execute(capability as Exclude<Nucleus04Capability, 'ai-pilot'>, input),
   });
   bridge.registerAll();
 
