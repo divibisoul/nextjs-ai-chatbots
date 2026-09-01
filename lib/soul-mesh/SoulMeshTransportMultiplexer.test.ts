@@ -9,6 +9,7 @@ function transport(send: SoulMeshTransport['send']): SoulMeshTransport {
 
 const message: SoulMeshMessage = {
   protocol: 'soul-mesh/1',
+  contractVersion: '1.1.0',
   id: 'id',
   correlationId: 'corr',
   source: 'N04',
