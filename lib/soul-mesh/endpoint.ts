@@ -13,8 +13,18 @@ const seenRequests = new Map<string, number>();
 export type SoulMeshHandler = (payload: unknown) => Promise<unknown> | unknown;
 export type N04MeshRuntimeContext = Nucleus04ToolContext;
 
-function payloadSize(value: unknown): number { try { return new TextEncoder().encode(JSON.stringify(value)).byteLength; } catch { return Number.POSITIVE_INFINITY; } }
-function acceptOnce(id: string): boolean { const now = Date.now(); for (const [key, timestamp] of seenRequests) if (now - timestamp > REPLAY_WINDOW_MS) seenRequests.delete(key); if (seenRequests.has(id)) return false; seenRequests.set(id, now); return true; }
+function payloadSize(value: unknown): number {
+  try { return new TextEncoder().encode(JSON.stringify(value)).byteLength; }
+  catch { return Number.POSITIVE_INFINITY; }
+}
+
+function acceptOnce(id: string): boolean {
+  const now = Date.now();
+  for (const [key, timestamp] of seenRequests) if (now - timestamp > REPLAY_WINDOW_MS) seenRequests.delete(key);
+  if (seenRequests.has(id)) return false;
+  seenRequests.set(id, now);
+  return true;
+}
 
 export function validateMeshMessage(m: unknown): asserts m is SoulMeshMessage {
   if (!isSoulMeshMessage(m)) throw new Error('INVALID_MESH_MESSAGE');
@@ -27,29 +37,53 @@ export function validateMeshMessage(m: unknown): asserts m is SoulMeshMessage {
 }
 
 function result(message: SoulMeshMessage, payload: unknown, kind: SoulMeshMessage['kind'] = 'response'): SoulMeshMessage {
-  return { protocol: 'soul-mesh/1', contractVersion: SOUL_MESH_CONTRACT_VERSION, id: crypto.randomUUID(), correlationId: message.correlationId, source: NUCLEUS_ID, target: message.source, kind, capability: message.capability, payload, timestamp: Date.now() };
+  return {
+    protocol: 'soul-mesh/1',
+    contractVersion: SOUL_MESH_CONTRACT_VERSION,
+    id: crypto.randomUUID(),
+    correlationId: message.correlationId,
+    source: NUCLEUS_ID,
+    target: message.source,
+    kind,
+    capability: message.capability,
+    payload,
+    timestamp: Date.now(),
+  };
 }
 
 export function createN04MeshHandler(context?: N04MeshRuntimeContext) {
   const processor = context ? createNucleus04Runtime(context).processor : null;
-  return async function handleMeshMessage(message: SoulMeshMessage, handlers: Record<string, SoulMeshHandler> = {}): Promise<SoulMeshMessage> {
+
+  return async function handleMeshMessage(
+    message: SoulMeshMessage,
+    handlers: Record<string, SoulMeshHandler> = {},
+  ): Promise<SoulMeshMessage> {
     validateMeshMessage(message);
     if (message.kind !== 'request') return message;
+
     const capability = message.capability!;
     const handler = handlers[capability];
     try {
       if (handler) return result(message, await handler(message.payload));
-      if (processor) return result(message, await processor.execute({ capability: capability as any, input: message.payload }, { ...context, metadata: { mesh: true, source: message.source, correlationId: message.correlationId } } as any));
+      if (processor) {
+        return result(
+          message,
+          await processor.execute(
+            { capability: capability as any, input: message.payload },
+            { ...context, metadata: { mesh: true, source: message.source, correlationId: message.correlationId } } as any,
+          ),
+        );
+      }
       return result(message, { code: 'CAPABILITY_HANDLER_NOT_REGISTERED', nucleus: NUCLEUS_ID, capability }, 'error');
-    } catch (error) { return result(message, { code: 'CAPABILITY_EXECUTION_ERROR', nucleus: NUCLEUS_ID, capability, detail: error instanceof Error ? error.message : 'Unknown error' }, 'error'); }
+    } catch (error) {
+      return result(
+        message,
+        { code: 'CAPABILITY_EXECUTION_ERROR', nucleus: NUCLEUS_ID, capability, detail: error instanceof Error ? error.message : 'Unknown error' },
+        'error',
+      );
+    }
   };
 }
 
-export async function handleMeshMessage(message: SoulMeshMessage, handlers: Record<string, SoulMeshHandler> = {}) {
-  validateMeshMessage(message);
-  if (message.kind !== 'request') return message;
-  const handler = handlers[message.capability ?? ''];
-  if (!handler) return result(message, { code: 'CAPABILITY_HANDLER_NOT_REGISTERED', nucleus: NUCLEUS_ID, capability: message.capability }, 'error');
-  try { return result(message, await handler(message.payload)); }
-  catch (error) { return result(message, { code: 'CAPABILITY_EXECUTION_ERROR', nucleus: NUCLEUS_ID, detail: error instanceof Error ? error.message : 'Unknown error' }, 'error'); }
-}
+/** Compatibility facade over the single canonical handler; no second implementation. */
+export const handleMeshMessage = createN04MeshHandler();
