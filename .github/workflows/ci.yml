@@ -16,11 +16,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: pnpm
       - name: Enable pnpm
         run: corepack enable
+      - name: Setup pnpm cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
       - name: N04 tests
         run: pnpm run test:n04
       - name: Typecheck
