@@ -1,7 +1,8 @@
 import type { SoulMeshMessage } from './SoulMeshProtocol';
 import { isSoulMeshMessage } from './SoulMeshProtocol';
-import { createNucleus04Runtime } from '@/lib/soul-core/Nucleus04Runtime';
 import type { Nucleus04ToolContext } from '@/lib/soul-core/Nucleus04ToolRegistry';
+import type { Nucleus04Context } from '@/lib/soul-core/Nucleus04Processor';
+import type { Nucleus04Capability } from '@/lib/soul-core/Nucleus04Capabilities';
 
 export const NUCLEUS_ID = 'N04' as const;
 const NUCLEI = new Set(['N01', 'N02', 'N03', 'N04', 'N05', 'N06']);
@@ -37,7 +38,6 @@ function result(message: SoulMeshMessage, payload: unknown, kind: SoulMeshMessag
 }
 
 export function createN04MeshHandler(context?: N04MeshRuntimeContext) {
-  const processor = context ? createNucleus04Runtime(context).processor : null;
   return async function handleMeshMessage(message: SoulMeshMessage, handlers: Record<string, SoulMeshHandler> = {}): Promise<SoulMeshMessage> {
     validateMeshMessage(message);
     if (message.kind !== 'request') return message;
@@ -45,10 +45,19 @@ export function createN04MeshHandler(context?: N04MeshRuntimeContext) {
     const handler = handlers[capability];
     try {
       if (handler) return result(message, await handler(message.payload));
-      if (processor) {
+      if (context) {
+        const { createNucleus04Runtime } = await import('@/lib/soul-core/Nucleus04Runtime');
+        const processor = createNucleus04Runtime(context).processor;
+        if (!processor.supports(capability)) {
+          return result(message, { code: 'UNSUPPORTED_CAPABILITY', nucleus: NUCLEUS_ID, capability }, 'error');
+        }
+        const runtimeContext: Nucleus04Context = {
+          ...context,
+          metadata: { ...(context.metadata ?? {}), mesh: true, source: message.source, correlationId: message.correlationId },
+        };
         return result(message, await processor.execute(
-          { capability: capability as any, input: message.payload },
-          { ...context, metadata: { mesh: true, source: message.source, correlationId: message.correlationId } } as any,
+          { capability: capability as Nucleus04Capability, input: message.payload },
+          runtimeContext,
         ));
       }
       return result(message, { code: 'CAPABILITY_HANDLER_NOT_REGISTERED', nucleus: NUCLEUS_ID, capability }, 'error');
