@@ -7,9 +7,12 @@ on:
   workflow_dispatch:
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
         with:
           version: 9.12.3
@@ -17,7 +20,8 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - name: Verify immutable dependency graph
+        run: pnpm install --frozen-lockfile
       - name: Typecheck N04 hybrid Mesh runtime
         run: pnpm exec tsc -p tsconfig.mesh.json --noEmit
       - name: Run N04 Mesh contract tests
