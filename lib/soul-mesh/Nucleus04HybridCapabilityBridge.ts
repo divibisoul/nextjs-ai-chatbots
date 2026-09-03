@@ -34,7 +34,7 @@ export class Nucleus04HybridCapabilityBridge {
 
   executableCapabilities() {
     return nucleus04Processor.capabilities.filter(
-      (capability) => capability === 'ai-pilot' || this.registered.has(capability),
+      (capability) => this.registered.has(capability),
     );
   }
 }
