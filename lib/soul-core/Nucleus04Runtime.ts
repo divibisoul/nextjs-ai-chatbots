@@ -43,7 +43,7 @@ export function createNucleus04Runtime(context: Nucleus04ToolContext) {
   return { processor, tools };
 }
 
-export function createNucleus04MeshContext(session: Session, dataStream: UIMessageStreamWriter<any>): Nucleus04ToolContext {
+export function createNucleus04MeshContext(session: Session, dataStream: UIMessageStreamWriter<ChatMessage>): Nucleus04ToolContext {
   return { session, dataStream };
 }
 
