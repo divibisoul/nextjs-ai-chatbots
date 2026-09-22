@@ -6,6 +6,8 @@ import { authConfig } from './auth.config';
 import { DUMMY_PASSWORD } from '@/lib/constants';
 import type { DefaultJWT } from 'next-auth/jwt';
 
+type CredentialsInput = Partial<Record<'email' | 'password', unknown>>;
+
 export type UserType = 'guest' | 'regular';
 
 declare module 'next-auth' {
@@ -40,7 +42,9 @@ export const {
   providers: [
     Credentials({
       credentials: {},
-      async authorize({ email, password }: any) {
+      async authorize(credentials) {
+        const { email, password } = credentials as CredentialsInput;
+        if (typeof email !== 'string' || typeof password !== 'string' || !email.trim() || !password) return null;
         const users = await getUser(email);
 
         if (users.length === 0) {
