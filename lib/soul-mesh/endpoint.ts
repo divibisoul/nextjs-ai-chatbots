@@ -1,6 +1,8 @@
 import type { SoulMeshMessage } from './SoulMeshProtocol';
 import { isSoulMeshMessage } from './SoulMeshProtocol';
 import type { Nucleus04ToolContext } from '@/lib/soul-core/Nucleus04ToolRegistry';
+import type { Nucleus04Context } from '@/lib/soul-core/Nucleus04Processor';
+import { supportsNucleus04Capability } from '@/lib/soul-core/Nucleus04Capabilities';
 
 export const NUCLEUS_ID = 'N04' as const;
 export const SOUL_MESH_CONTRACT_VERSION = '1.1.0' as const;
@@ -59,7 +61,8 @@ export function createN04MeshHandler(context?: N04MeshRuntimeContext) {
     validateMeshMessage(message);
     if (message.kind !== 'request') return message;
 
-    const capability = message.capability!;
+    const capability = message.capability;
+    if (!capability) throw new Error('MISSING_CAPABILITY');
     const handler = handlers[capability];
     try {
       if (handler) return result(message, await handler(message.payload));
@@ -69,8 +72,14 @@ export function createN04MeshHandler(context?: N04MeshRuntimeContext) {
         return result(
           message,
           await processor.execute(
-            { capability: capability as any, input: message.payload },
-            { ...context, metadata: { mesh: true, source: message.source, correlationId: message.correlationId } } as any,
+            {
+              capability: supportsNucleus04Capability(capability) ? capability : (() => { throw new Error('UNSUPPORTED_N04_CAPABILITY'); })(),
+              input: message.payload,
+            },
+            {
+              ...(context as Nucleus04Context),
+              metadata: { mesh: true, source: message.source, correlationId: message.correlationId },
+            },
           ),
         );
       }
