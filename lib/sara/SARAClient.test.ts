@@ -6,7 +6,9 @@ test('N04 exposes additive SARA health and governance operations', async () => {
   const originalFetch = globalThis.fetch;
   const oldUrl = process.env.SARA_BASE_URL;
   const oldToken = process.env.SARA_API_TOKEN;
-  let observed: { path: string; method: string; auth?: string; correlation?: string } | null = null;
+  type Observed = { path: string; method: string; auth?: string; correlation?: string };
+  let observed: Observed | null = null;
+  const expectObserved = (): Observed => { assert.ok(observed); return observed; };
 
   process.env.SARA_BASE_URL = 'http://sara.test';
   delete process.env.SARA_API_TOKEN;
@@ -29,26 +31,26 @@ test('N04 exposes additive SARA health and governance operations', async () => {
   try {
     const health = await saraHealth();
     assert.equal(health.ok, true);
-    assert.equal(observed?.path, '/health');
-    assert.equal(observed?.auth, undefined);
+    assert.equal(expectObserved().path, '/health');
+    assert.equal(expectObserved().auth, undefined);
 
     process.env.SARA_API_TOKEN = 'token';
     await saraCapabilities();
-    assert.equal(observed?.path, '/v1/capabilities');
+    assert.equal(expectObserved().path, '/v1/capabilities');
 
     await saraState();
-    assert.equal(observed?.path, '/v1/state');
+    assert.equal(expectObserved().path, '/v1/state');
 
     await saraAudit('auditar capacidade', 'n04-audit-001');
-    assert.equal(observed?.path, '/v1/audit');
-    assert.equal(observed?.method, 'POST');
-    assert.equal(observed?.correlation, 'n04-audit-001');
+    assert.equal(expectObserved().path, '/v1/audit');
+    assert.equal(expectObserved().method, 'POST');
+    assert.equal(expectObserved().correlation, 'n04-audit-001');
 
     await saraRegenerate('regenerar sem apagar', 'n04-regenerate-001');
-    assert.equal(observed?.path, '/v1/regenerate');
+    assert.equal(expectObserved().path, '/v1/regenerate');
 
     await saraTrace('n04-cycle-001');
-    assert.equal(observed?.path, '/v1/trace/n04-cycle-001');
+    assert.equal(expectObserved().path, '/v1/trace/n04-cycle-001');
   } finally {
     globalThis.fetch = originalFetch;
     if (oldUrl === undefined) delete process.env.SARA_BASE_URL;
