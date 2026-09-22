@@ -17,8 +17,7 @@ O token nunca deve ser enviado ao cliente browser nem commitado.
 5. o estado regenerado é anexado ao contexto do modelo;
 6. o streaming nativo N04 permanece responsável pela UX.
 
-SARA não substitui ferramentas, documentos, artefatos ou o provedor de modelo
-N04; ele ocupa a camada regenerativa.
+Além do ciclo já usado pelo chat, o cliente server-side do N04 agora expõe, de forma aditiva, `sara.health`, `sara.capabilities`, `sara.state`, `sara.audit`, `sara.regenerate` e `sara.trace`. Essas operações permitem usar a mesma camada regenerativa para auditoria, governança, estado e rastreabilidade sem transferir para N04 a propriedade das funções do SARA.
 
 ## Falhas
 
