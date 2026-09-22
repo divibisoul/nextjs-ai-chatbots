@@ -82,14 +82,13 @@ export const requestSuggestions = ({
       }
 
       await saveSuggestions({
-          suggestions: suggestions.map((suggestion) => ({
-            ...suggestion,
-            userId,
-            createdAt: new Date(),
-            documentCreatedAt: document.createdAt,
-          })),
-        });
-      }
+        suggestions: suggestions.map((suggestion) => ({
+          ...suggestion,
+          userId,
+          createdAt: new Date(),
+          documentCreatedAt: document.createdAt,
+        })),
+      });
 
       return {
         id: documentId,
