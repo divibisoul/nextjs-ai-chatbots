@@ -30,6 +30,7 @@ import { ChatSDKError } from '@/lib/errors';
 import type { ChatMessage } from '@/lib/types';
 import type { ChatModel } from '@/lib/ai/models';
 import type { VisibilityType } from '@/components/visibility-selector';
+import { extractMessageText, saraChatEnabled, saraConfigured, saraCycle } from '@/lib/sara/SARAClient';
 
 export const maxDuration = 60;
 
@@ -97,6 +98,38 @@ export async function POST(request: Request) {
       }],
     });
 
+    let saraContext = '';
+    if (saraChatEnabled()) {
+      if (!saraConfigured()) {
+        return Response.json(
+          { error: 'SARA_NOT_CONFIGURED', message: 'SARA_ENABLE_CHAT=true requer SARA_BASE_URL e SARA_API_TOKEN.' },
+          { status: 503 },
+        );
+      }
+      const userText = extractMessageText(message);
+      if (userText) {
+        try {
+          const sara = await saraCycle(userText, id + ':sara');
+          saraContext = [
+            'SARA_REGENERATIVE_CONTEXT',
+            'cycle_id=' + sara.cycle_id,
+            'converged=' + String(sara.result?.converged ?? false),
+            'rollback_performed=' + String(sara.result?.rollback_performed ?? false),
+            'final_state:',
+            String(sara.result?.final_state ?? ''),
+          ].join('\n');
+        } catch (error) {
+          return Response.json(
+            {
+              error: 'SARA_UNAVAILABLE',
+              message: error instanceof Error ? error.message : 'SARA request failed',
+            },
+            { status: 502 },
+          );
+        }
+      }
+    }
+
     const streamId = generateUUID();
     await createStreamId({ streamId, chatId: id });
 
@@ -106,7 +139,10 @@ export async function POST(request: Request) {
         const nucleus04Tools = nucleus04Runtime.tools;
         const result = streamText({
           model: myProvider.languageModel(selectedChatModel),
-          system: systemPrompt({ selectedChatModel, requestHints }),
+          system: [
+            systemPrompt({ selectedChatModel, requestHints }),
+            saraContext,
+          ].filter(Boolean).join('\n\n'),
           messages: convertToModelMessages(uiMessages),
           stopWhen: stepCountIs(5),
           experimental_activeTools:
