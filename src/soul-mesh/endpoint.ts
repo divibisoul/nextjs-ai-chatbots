@@ -37,7 +37,9 @@ export async function handleMeshMessage(
   validateMessage(m, nucleusId);
   // `ack` remains accepted only as a legacy ingress representation; all generated responses are canonical.
   if (m.kind !== 'request') return m;
-  const h = handlers[m.capability!];
+  const capability = m.capability;
+  if (!capability?.trim()) throw new Error('Malformed Mesh message: capability required for request');
+  const h = handlers[capability];
   if (!h) return { ...m, kind: 'error' as const, target: m.source, source: nucleusId, payload: { code: 'CAPABILITY_NOT_FOUND' } };
   try {
     return { ...m, kind: 'response' as const, target: m.source, source: nucleusId, payload: await h(m.payload) };
