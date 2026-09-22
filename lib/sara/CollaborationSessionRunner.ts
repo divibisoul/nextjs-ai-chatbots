@@ -62,10 +62,39 @@ async function withTimeout<T>(
 export class CollaborationSessionRunner {
   private readonly searchAdapter?: SearchAdapter;
   private readonly researchTimeoutMs: number;
+  private readonly searchLocks = new Map<string, Promise<void>>();
 
   constructor(options: { searchAdapter?: SearchAdapter; researchTimeoutMs?: number } = {}) {
     this.searchAdapter = options.searchAdapter;
     this.researchTimeoutMs = Math.max(100, options.researchTimeoutMs ?? 2_500);
+  }
+
+  private async searchWithSessionLock(
+    sessionId: string,
+    query: string,
+  ): Promise<string[]> {
+    const previous = this.searchLocks.get(sessionId) ?? Promise.resolve();
+    let release!: () => void;
+    const current = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    this.searchLocks.set(sessionId, current);
+    try {
+      await previous;
+      return await withTimeout(
+        (signal) => this.searchAdapter!.search(query, {
+          signal,
+          timeoutMs: this.researchTimeoutMs,
+          sessionId,
+        }),
+        this.researchTimeoutMs,
+      );
+    } finally {
+      release();
+      if (this.searchLocks.get(sessionId) === current) {
+        this.searchLocks.delete(sessionId);
+      }
+    }
   }
 
   async run(request: CollaborationSessionRequest): Promise<CollaborationSessionReport> {
@@ -109,13 +138,9 @@ export class CollaborationSessionRunner {
       });
     } else {
       try {
-        researchSnippets = await withTimeout(
-          (signal) => this.searchAdapter!.search(request.researchQuery!.trim(), {
-            signal,
-            timeoutMs: this.researchTimeoutMs,
-            sessionId,
-          }),
-          this.researchTimeoutMs,
+        researchSnippets = await this.searchWithSessionLock(
+          sessionId,
+          request.researchQuery!.trim(),
         );
         researchSnippets = researchSnippets
           .filter((item) => typeof item === 'string' && item.trim())
