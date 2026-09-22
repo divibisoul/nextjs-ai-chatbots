@@ -46,7 +46,7 @@ export async function saraCycle(input: string, cycleId?: string) {
       const detail = payload?.error?.message ?? payload?.error ?? ('HTTP_' + response.status);
       throw new Error('SARA_HTTP_' + response.status + ':' + detail);
     }
-    if (!payload?.cycle_id || typeof payload?.result?.final_state !== 'string') {
+    if (!payload?.cycle_id || typeof payload?.final_state !== 'string') {
       throw new Error('SARA_INVALID_CYCLE_RESPONSE');
     }
     return payload;
