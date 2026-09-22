@@ -24,6 +24,8 @@ export const requestSuggestions = ({
         .describe('The ID of the document to request edits'),
     }),
     execute: async ({ documentId }) => {
+      const userId = session.user?.id;
+      if (!userId) throw new Error('AUTHENTICATED_SESSION_REQUIRED');
       const document = await getDocumentById({ id: documentId });
 
       if (!document || !document.content) {
@@ -59,7 +61,7 @@ export const requestSuggestions = ({
           throw new Error('SUGGESTION_STREAM_ITEM_INVALID');
         }
         const suggestion: Suggestion = {
-          userId: session.user.id,
+          userId,
           createdAt: new Date(),
           documentCreatedAt: document.createdAt,
           originalText,
@@ -79,10 +81,7 @@ export const requestSuggestions = ({
         suggestions.push(suggestion);
       }
 
-      if (session.user?.id) {
-        const userId = session.user.id;
-
-        await saveSuggestions({
+      await saveSuggestions({
           suggestions: suggestions.map((suggestion) => ({
             ...suggestion,
             userId,
