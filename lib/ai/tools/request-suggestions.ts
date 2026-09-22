@@ -50,11 +50,20 @@ export const requestSuggestions = ({
       });
 
       for await (const element of elementStream) {
-        // @ts-ignore todo: fix type
+        const originalText = element.originalSentence;
+        const suggestedText = element.suggestedSentence;
+        const description = element.description;
+        if (
+          typeof originalText !== 'string' ||
+          typeof suggestedText !== 'string' ||
+          typeof description !== 'string'
+        ) {
+          throw new Error('SUGGESTION_STREAM_ITEM_INVALID');
+        }
         const suggestion: Suggestion = {
-          originalText: element.originalSentence,
-          suggestedText: element.suggestedSentence,
-          description: element.description,
+          originalText,
+          suggestedText,
+          description,
           id: generateUUID(),
           documentId: documentId,
           isResolved: false,
