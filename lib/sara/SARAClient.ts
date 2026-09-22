@@ -33,6 +33,7 @@ export async function saraCycle(input: string, cycleId?: string) {
         authorization: 'Bearer ' + TOKEN(),
         'content-type': 'application/json',
         accept: 'application/json',
+        ...(cycleId ? { 'X-Correlation-ID': cycleId } : {}),
       },
       body: JSON.stringify({ input, cycle_id: cycleId }),
       signal: controller.signal,
