@@ -152,6 +152,13 @@ export async function saraAudit(input: string, correlationId?: string): Promise<
   })) as Record<string, unknown>;
 }
 
+export async function saraClareiraAudit(correlationId?: string): Promise<Record<string, unknown>> {
+  return (await saraRequest('/v1/clareira/audit', {
+    method: 'GET',
+    correlationId,
+  })) as Record<string, unknown>;
+}
+
 export async function saraRegenerate(input: string, correlationId?: string): Promise<Record<string, unknown>> {
   if (!input.trim()) throw new Error('SARA_INPUT_REQUIRED');
   return (await saraRequest('/v1/regenerate', {
