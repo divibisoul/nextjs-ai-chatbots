@@ -23,6 +23,50 @@ export function extractMessageText(message: ChatMessage): string {
     .trim();
 }
 
+export type SaraProbabilisticNode = {
+  name: string;
+  states: string[];
+  prior: Record<string, number>;
+  prior_type?: 'dirichlet' | 'uniform' | 'empirical';
+  pseudo_counts?: number;
+  evidence?: Record<string, number> | null;
+  posterior?: Record<string, number> | null;
+  confidence?: number;
+  entropy?: number;
+  source?: 'dirichlet' | 'neural' | 'fused';
+  provenance?: 'HISTORICAL' | 'INFERRED' | 'USER' | 'TOOL';
+} & Record<string, unknown>;
+
+export type SaraProbabilisticContext = {
+  structure?: {
+    edges: [string, string][];
+    valid?: boolean;
+    validation_errors?: string[];
+  };
+  nodes: SaraProbabilisticNode[];
+  interventions?: Array<{
+    name: string;
+    do: Record<string, string>;
+    evidence: Record<string, string>;
+    query: string[];
+  }>;
+  fusion?: {
+    alpha_dirichlet?: number;
+    beta_neural?: number;
+    temperature?: number;
+  };
+} & Record<string, unknown>;
+
+export type SaraCycleContext = {
+  session_id?: string;
+  client?: 'n04' | 'n06' | 'n07' | 'android' | 'collaboration' | 'web' | 'app' | 'ios' | 'desktop' | 'pwa' | string;
+  research_snippets?: string[];
+  user_feedback_refs?: string[];
+  pipeline?: Record<string, unknown>;
+  probabilistic?: SaraProbabilisticContext;
+  scenarios?: Array<{ name: string; note: string }>;
+} & Record<string, unknown>;
+
 export type SaraCycleExecutionReport = { evidence_hash?: string } & Record<string, unknown>;
 
 export type SaraCycleResponse = {
@@ -34,7 +78,7 @@ export type SaraCycleResponse = {
   execution_report?: SaraCycleExecutionReport;
 } & Record<string, unknown>;
 
-export async function saraCycle(input: string, cycleId?: string): Promise<SaraCycleResponse> {
+export async function saraCycle(input: string, cycleId?: string, context?: SaraCycleContext): Promise<SaraCycleResponse> {
   if (!saraConfigured()) throw new Error('SARA_NOT_CONFIGURED');
   if (!input.trim()) throw new Error('SARA_INPUT_REQUIRED');
 
@@ -49,7 +93,11 @@ export async function saraCycle(input: string, cycleId?: string): Promise<SaraCy
         accept: 'application/json',
         ...(cycleId ? { 'X-Correlation-ID': cycleId } : {}),
       },
-      body: JSON.stringify({ input, cycle_id: cycleId }),
+      body: JSON.stringify({
+        input,
+        cycle_id: cycleId,
+        ...(context ? { context } : {}),
+      }),
       signal: controller.signal,
       cache: 'no-store',
     });
@@ -143,11 +191,15 @@ export async function saraState(): Promise<Record<string, unknown>> {
   return (await saraRequest('/v1/state', { correlationId: crypto.randomUUID() })) as Record<string, unknown>;
 }
 
-export async function saraAudit(input: string, correlationId?: string): Promise<Record<string, unknown>> {
+export async function saraAudit(
+  input: string,
+  correlationId?: string,
+  context?: SaraCycleContext,
+): Promise<Record<string, unknown>> {
   if (!input.trim()) throw new Error('SARA_INPUT_REQUIRED');
   return (await saraRequest('/v1/audit', {
     method: 'POST',
-    body: { input },
+    body: { input, ...(context ? { context } : {}) },
     correlationId,
   })) as Record<string, unknown>;
 }
