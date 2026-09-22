@@ -113,10 +113,12 @@ export async function POST(request: Request) {
           saraContext = [
             'SARA_REGENERATIVE_CONTEXT',
             'cycle_id=' + sara.cycle_id,
-            'converged=' + String(sara.result?.converged ?? false),
-            'rollback_performed=' + String(sara.result?.rollback_performed ?? false),
+            'converged=' + String(sara.converged ?? false),
+            'rollback_performed=' + String(sara.rollback_performed ?? false),
+            'trace_hash=' + String(sara.trace_hash ?? ''),
+            'evidence_hash=' + String(sara.execution_report?.evidence_hash ?? ''),
             'final_state:',
-            String(sara.result?.final_state ?? ''),
+            String(sara.final_state ?? ''),
           ].join('\n');
         } catch (error) {
           return Response.json(
