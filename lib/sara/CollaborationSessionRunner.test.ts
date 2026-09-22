@@ -54,7 +54,7 @@ test('research unavailable is skipped and real SARA stages continue', async () =
 test('search adapter supplies snippets as evidence context, never as fabricated final output', async () => {
   process.env.SARA_BASE_URL = 'http://sara.test';
   process.env.SARA_API_TOKEN = 'token';
-  let cycleBody: Record<string, unknown> | null = null;
+  let cycleBody: Record<string, unknown> = {};
 
   globalThis.fetch = async (input, init) => {
     const path = new URL(String(input)).pathname;
@@ -87,7 +87,7 @@ test('search adapter supplies snippets as evidence context, never as fabricated 
     researchQuery: 'hipótese',
   });
 
-  const context = cycleBody?.context as Record<string, unknown>;
+  const context = cycleBody.context as Record<string, unknown>;
   assert.deepEqual(context?.research_snippets, ['evidence A', 'evidence B']);
   assert.equal(report.final_response?.final_state, 'sara-result');
   assert.notEqual(report.final_response?.final_state, 'evidence A');
