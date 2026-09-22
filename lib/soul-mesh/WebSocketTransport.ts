@@ -1,1 +1,34 @@
-export class SoulMeshWebSocketTransport { private socket:WebSocket|null=null; constructor(private readonly url:string){} connect(onMessage:(message:unknown)=>void):Promise<void>{this.socket=new WebSocket(this.url);return new Promise((resolve,reject)=>{const s=this.socket!;s.onopen=()=>resolve();s.onerror=()=>reject(new Error('SOUL_MESH_WS_ERROR'));s.onmessage=e=>{try{onMessage(JSON.parse(e.data as string));}catch{onMessage(e.data);}};});} send(message:unknown):void{if(!this.socket||this.socket.readyState!==WebSocket.OPEN)throw new Error('SOUL_MESH_WS_NOT_OPEN');this.socket.send(JSON.stringify(message));} close():void{this.socket?.close();this.socket=null;}}
+export class SoulMeshWebSocketTransport {
+  private socket: WebSocket | null = null;
+
+  constructor(private readonly url: string) {}
+
+  connect(onMessage: (message: unknown) => void): Promise<void> {
+    const socket = new WebSocket(this.url);
+    this.socket = socket;
+    return new Promise((resolve, reject) => {
+      socket.onopen = () => resolve();
+      socket.onerror = () => reject(new Error('SOUL_MESH_WS_ERROR'));
+      socket.onmessage = (event) => {
+        try {
+          onMessage(JSON.parse(event.data as string));
+        } catch {
+          onMessage(event.data);
+        }
+      };
+    });
+  }
+
+  send(message: unknown): void {
+    const socket = this.socket;
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      throw new Error('SOUL_MESH_WS_NOT_OPEN');
+    }
+    socket.send(JSON.stringify(message));
+  }
+
+  close(): void {
+    this.socket?.close();
+    this.socket = null;
+  }
+}
