@@ -12,10 +12,13 @@ export function saraChatEnabled(): boolean {
 }
 
 export function extractMessageText(message: ChatMessage): string {
-  const parts = Array.isArray((message as any)?.parts) ? (message as any).parts : [];
-  return parts
-    .filter((part: any) => part?.type === 'text' && typeof part?.text === 'string')
-    .map((part: any) => part.text)
+  return message.parts
+    .flatMap((part) => {
+      if (part.type === 'text' && 'text' in part && typeof part.text === 'string') {
+        return [part.text];
+      }
+      return [];
+    })
     .join('\n')
     .trim();
 }
@@ -40,14 +43,17 @@ export async function saraCycle(input: string, cycleId?: string) {
       cache: 'no-store',
     });
 
-    let payload: any = null;
-    try { payload = await response.json(); } catch { payload = null; }
+    const payload: unknown = await response.json().catch(() => null);
 
     if (!response.ok) {
-      const detail = payload?.error?.message ?? payload?.error ?? ('HTTP_' + response.status);
+      const detail = payload && typeof payload === 'object' && payload !== null && 'error' in payload
+        ? JSON.stringify((payload as { error: unknown }).error)
+        : 'HTTP_' + response.status;
       throw new Error('SARA_HTTP_' + response.status + ':' + detail);
     }
-    if (!payload?.cycle_id || typeof payload?.final_state !== 'string') {
+    if (!payload || typeof payload !== 'object' || payload === null || Array.isArray(payload)
+      || typeof (payload as { cycle_id?: unknown }).cycle_id !== 'string'
+      || typeof (payload as { final_state?: unknown }).final_state !== 'string') {
       throw new Error('SARA_INVALID_CYCLE_RESPONSE');
     }
     return payload;
