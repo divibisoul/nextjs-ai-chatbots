@@ -23,7 +23,18 @@ export function extractMessageText(message: ChatMessage): string {
     .trim();
 }
 
-export async function saraCycle(input: string, cycleId?: string) {
+export type SaraCycleExecutionReport = { evidence_hash?: string } & Record<string, unknown>;
+
+export type SaraCycleResponse = {
+  cycle_id: string;
+  final_state: string;
+  converged?: boolean;
+  rollback_performed?: boolean;
+  trace_hash?: string;
+  execution_report?: SaraCycleExecutionReport;
+} & Record<string, unknown>;
+
+export async function saraCycle(input: string, cycleId?: string): Promise<SaraCycleResponse> {
   if (!saraConfigured()) throw new Error('SARA_NOT_CONFIGURED');
   if (!input.trim()) throw new Error('SARA_INPUT_REQUIRED');
 
@@ -51,12 +62,20 @@ export async function saraCycle(input: string, cycleId?: string) {
         : 'HTTP_' + response.status;
       throw new Error('SARA_HTTP_' + response.status + ':' + detail);
     }
-    if (!payload || typeof payload !== 'object' || payload === null || Array.isArray(payload)
-      || typeof (payload as { cycle_id?: unknown }).cycle_id !== 'string'
-      || typeof (payload as { final_state?: unknown }).final_state !== 'string') {
+    if (!payload || typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
       throw new Error('SARA_INVALID_CYCLE_RESPONSE');
     }
-    return payload;
+    const record = payload as Record<string, unknown>;
+    const cycleIdValue = record.cycle_id;
+    const finalStateValue = record.final_state;
+    if (typeof cycleIdValue !== 'string' || typeof finalStateValue !== 'string') {
+      throw new Error('SARA_INVALID_CYCLE_RESPONSE');
+    }
+    const executionReport = record.execution_report;
+    if (executionReport !== undefined && (typeof executionReport !== 'object' || executionReport === null || Array.isArray(executionReport))) {
+      throw new Error('SARA_INVALID_CYCLE_EXECUTION_REPORT');
+    }
+    return record as SaraCycleResponse;
   } finally {
     clearTimeout(timer);
   }
