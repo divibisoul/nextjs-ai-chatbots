@@ -32,9 +32,7 @@ export const requestSuggestions = ({
         };
       }
 
-      const suggestions: Array<
-        Omit<Suggestion, 'userId' | 'createdAt' | 'documentCreatedAt'>
-      > = [];
+      const suggestions: Suggestion[] = [];
 
       const { elementStream } = streamObject({
         model: myProvider.languageModel('artifact-model'),
@@ -60,7 +58,10 @@ export const requestSuggestions = ({
         ) {
           throw new Error('SUGGESTION_STREAM_ITEM_INVALID');
         }
-        const suggestion: Omit<Suggestion, 'userId' | 'createdAt' | 'documentCreatedAt'> = {
+        const suggestion: Suggestion = {
+          userId: session.user.id,
+          createdAt: new Date(),
+          documentCreatedAt: document.createdAt,
           originalText,
           suggestedText,
           description,
