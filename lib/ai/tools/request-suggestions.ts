@@ -60,7 +60,7 @@ export const requestSuggestions = ({
         ) {
           throw new Error('SUGGESTION_STREAM_ITEM_INVALID');
         }
-        const suggestion: Suggestion = {
+        const suggestion: Omit<Suggestion, 'userId' | 'createdAt' | 'documentCreatedAt'> = {
           originalText,
           suggestedText,
           description,
