@@ -4,6 +4,7 @@ import { myProvider } from '@/lib/ai/providers';
 import { nucleus04Processor, Nucleus04Processor, type Nucleus04Context } from './Nucleus04Processor';
 import { createNucleus04Tools, type Nucleus04ToolContext, type Nucleus04ToolId } from './Nucleus04ToolRegistry';
 import { sendTo } from '@/lib/soul-mesh/peer-client';
+import type { ChatMessage } from '@/lib/types';
 
 type ExecutableTool = { execute?: (input: unknown, options?: unknown) => unknown | Promise<unknown> };
 
