@@ -4,6 +4,7 @@ import {
   type SaraCycleContext,
   type SaraCycleResponse,
 } from '@/lib/sara/SARAClient';
+import { ContextPipeline } from '@/lib/sara/ContextPipeline';
 
 export type CollaborationStage = 'COORDINATE' | 'RESEARCH' | 'VALIDATE' | 'EXECUTE' | 'REPORT';
 export type CollaborationStageState = 'pending' | 'running' | 'completed' | 'error' | 'skipped';
@@ -63,6 +64,7 @@ export class CollaborationSessionRunner {
   private readonly searchAdapter?: SearchAdapter;
   private readonly researchTimeoutMs: number;
   private readonly searchLocks = new Map<string, Promise<void>>();
+  private readonly contextPipeline = new ContextPipeline();
 
   constructor(options: { searchAdapter?: SearchAdapter; researchTimeoutMs?: number } = {}) {
     this.searchAdapter = options.searchAdapter;
@@ -169,6 +171,43 @@ export class CollaborationSessionRunner {
       }
     }
 
+    const contextPipeline = this.contextPipeline.run(request.input, context);
+    if (contextPipeline.status === 'failed' || !contextPipeline.context) {
+      const validateStart = Date.now();
+      const validateAt = nowIso();
+      stages.push({
+        stage: 'VALIDATE',
+        state: 'error',
+        durationMs: Date.now() - validateStart,
+        startedAt: validateAt,
+        finishedAt: nowIso(),
+        error: contextPipeline.errors.join('|') || 'CONTEXT_PIPELINE_FAILED',
+        detail: {
+          operation: 'context_pipeline',
+          pipeline: contextPipeline,
+          fallback_used: false,
+        },
+      });
+      const reportStart = Date.now();
+      const reportAt = nowIso();
+      stages.push({
+        stage: 'REPORT',
+        state: 'completed',
+        durationMs: Date.now() - reportStart,
+        startedAt: reportAt,
+        finishedAt: nowIso(),
+        detail: { final_response_present: false, fabricated_response: false },
+      });
+      return {
+        session_id: sessionId,
+        cycle_id: cycleId,
+        status: 'error',
+        research_snippets: researchSnippets,
+        stages,
+      };
+    }
+    context = contextPipeline.context;
+
     const validateStart = Date.now();
     const validateAt = nowIso();
     try {
@@ -179,7 +218,11 @@ export class CollaborationSessionRunner {
         durationMs: Date.now() - validateStart,
         startedAt: validateAt,
         finishedAt: nowIso(),
-        detail: { operation: 'sara.audit', response_keys: Object.keys(validation).sort() },
+        detail: {
+          operation: 'sara.audit',
+          response_keys: Object.keys(validation).sort(),
+          context_pipeline: contextPipeline,
+        },
       });
     } catch (error) {
       stages.push({
