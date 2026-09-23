@@ -1,5 +1,4 @@
 import type { N04MeshRuntimeContext } from '@/lib/soul-mesh/endpoint';
-import { createNucleus04Runtime } from '@/lib/soul-core/Nucleus04Runtime';
 import { supportsNucleus04Capability } from '@/lib/soul-core/Nucleus04Capabilities';
 
 export type OctaCoreN04Request = {
@@ -15,6 +14,7 @@ export async function executeOctaCoreN04(request: OctaCoreN04Request, context?: 
   if (!capability || !supportsNucleus04Capability(capability)) {
     throw new Error(`OCTACORE_N04_CAPABILITY_NOT_DECLARED:${capability ?? ''}`);
   }
+  const { createNucleus04Runtime } = await import('@/lib/soul-core/Nucleus04Runtime');
   const runtime = createNucleus04Runtime({
     session: context.session,
     dataStream: context.dataStream as N04MeshRuntimeContext['dataStream'],
