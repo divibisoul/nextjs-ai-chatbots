@@ -3,6 +3,7 @@ import type { Session } from 'next-auth';
 import { myProvider } from '@/lib/ai/providers';
 import { nucleus04Processor, Nucleus04Processor, type Nucleus04Context } from './Nucleus04Processor';
 import { createNucleus04Tools, type Nucleus04ToolContext, type Nucleus04ToolId } from './Nucleus04ToolRegistry';
+import { supportsNucleus04Capability } from './Nucleus04Capabilities';
 import type { Nucleus04Capability } from './Nucleus04Capabilities';
 import { sendTo } from '@/lib/soul-mesh/peer-client';
 import type { ChatMessage } from '@/lib/types';
