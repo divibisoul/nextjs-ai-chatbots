@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto';
 import type { SoulMeshMessage } from './SoulMeshProtocol';
 import { isSoulMeshMessage } from './SoulMeshProtocol';
 import type { Nucleus04ToolContext } from '@/lib/soul-core/Nucleus04ToolRegistry';
@@ -38,19 +39,38 @@ export function validateMeshMessage(m: unknown): asserts m is SoulMeshMessage {
 }
 
 function result(message: SoulMeshMessage, payload: unknown, kind: SoulMeshMessage['kind'] = 'response'): SoulMeshMessage {
+  const id = crypto.randomUUID();
+  const nonce = crypto.randomUUID();
+  const timestamp = Date.now();
+  const legacy = {
+    version: '1.0',
+    contractVersion: SOUL_MESH_CONTRACT_VERSION,
+    messageId: id,
+    source: NUCLEUS_ID,
+    target: message.source,
+    timestamp,
+    nonce,
+    correlationId: message.correlationId,
+    type: kind === 'error' ? 'ERROR' : 'TASK_RESULT',
+    payload: { capability: message.capability ?? '', payload },
+  };
+  const secret = String(process.env.SOUL_MESH_HMAC_SECRET ?? '').trim();
+  const hmac = secret ? createHmac('sha256', secret).update(JSON.stringify(legacy), 'utf8').digest('hex') : '';
   return {
     protocol: 'soul-mesh/1',
     contractVersion: SOUL_MESH_CONTRACT_VERSION,
-    id: crypto.randomUUID(),
+    id,
     correlationId: message.correlationId,
     source: NUCLEUS_ID,
     target: message.source,
     kind,
     capability: message.capability,
     payload,
-    timestamp: Date.now(),
-    meta: { runtime: 'nextjs-ai-chatbots', transport: 'HTTP', encoding: 'json', version: SOUL_MESH_CONTRACT_VERSION, traceId: message.meta?.traceId ?? message.correlationId },
-  };
+    timestamp,
+    nonce,
+    ...(hmac ? { hmac } : {}),
+    meta: { runtime: 'nextjs-ai-chatbots', transport: 'HTTP', encoding: 'json', version: SOUL_MESH_CONTRACT_VERSION, traceId: message.meta?.traceId ?? message.correlationId, nonce },
+  } as SoulMeshMessage;
 }
 
 export function createN04MeshHandler(context?: N04MeshRuntimeContext) {
@@ -63,6 +83,37 @@ export function createN04MeshHandler(context?: N04MeshRuntimeContext) {
 
     const capability = message.capability;
     if (!capability) throw new Error('MISSING_CAPABILITY');
+    if (capability === 'octacore.execute') {
+      const input = message.payload;
+      if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('OCTACORE_N04_PAYLOAD_MUST_BE_OBJECT');
+      const value = input as Record<string, unknown>;
+      const request = {
+        capability: typeof value.capability === 'string' ? value.capability : '',
+        payload: value.payload,
+        job_id: typeof value.job_id === 'string' ? value.job_id : undefined,
+        correlation_id: message.correlationId,
+      };
+      const { executeOctaCoreN04 } = await import('@/lib/octacore/OctaCoreN04Adapter');
+      try {
+        return result(message, await executeOctaCoreN04(request, context));
+      } catch (error) {
+        return result(
+          message,
+          {
+            code: 'OCTACORE_N04_EXECUTION_ERROR',
+            detail: error instanceof Error ? error.message : String(error),
+          },
+          'error',
+        );
+      }
+    }
+    if (capability === 'mesh.discovery' || capability === 'mesh.describe' || capability === 'mesh.ping' || capability === 'mesh.handshake') {
+      const { createNucleus04MeshHandlers } = await import('@/lib/soul-core/Nucleus04MeshRuntime');
+      const meshHandlers = createNucleus04MeshHandlers({ session: context?.session ?? null });
+      const meshHandler = (meshHandlers as Record<string, (payload: unknown) => unknown | Promise<unknown>>)[capability];
+      if (!meshHandler) throw new Error('MESH_CAPABILITY_NOT_IMPLEMENTED:' + capability);
+      return result(message, await meshHandler(message.payload));
+    }
     const handler = handlers[capability];
     try {
       if (handler) return result(message, await handler(message.payload));

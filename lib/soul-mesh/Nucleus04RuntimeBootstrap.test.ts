@@ -15,7 +15,7 @@ test('N04 runtime bootstrap binds the complete capability surface', () => {
   );
 
   assert.equal(status.declared.length, NUCLEUS_04_CAPABILITIES.length);
-  assert.equal(status.registered.length, 15);
+  assert.equal(status.registered.length, 16);
   assert.deepEqual(status.missing, []);
   assert.equal(status.ready, true);
 });
