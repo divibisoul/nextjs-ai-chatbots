@@ -16,7 +16,7 @@ export async function executeOctaCoreN04(request: OctaCoreN04Request, context?: 
   }
   const { createNucleus04Runtime } = await import('@/lib/soul-core/Nucleus04Runtime');
   const runtime = createNucleus04Runtime({
-    session: context.session,
+    session: context?.session ?? null,
     dataStream: context.dataStream as N04MeshRuntimeContext['dataStream'],
   });
   const registered = runtime.processor.registeredCapabilities();
