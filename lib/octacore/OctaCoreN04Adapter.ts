@@ -22,6 +22,10 @@ export async function executeOctaCoreN04(request: OctaCoreN04Request, context?: 
     session: context.session,
     dataStream: context.dataStream as N04MeshRuntimeContext['dataStream'],
   });
+  const registered = runtime.processor.registeredCapabilities();
+  if (!registered.includes(capability)) {
+    throw new Error(`OCTACORE_N04_CAPABILITY_PENDING_RUNTIME:${capability}`);
+  }
   try {
     const value = await runtime.processor.execute({
       capability: capability as Parameters<typeof runtime.processor.execute>[0]['capability'],
