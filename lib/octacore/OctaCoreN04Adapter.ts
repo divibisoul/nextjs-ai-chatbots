@@ -14,10 +14,13 @@ export async function executeOctaCoreN04(request: OctaCoreN04Request, context?: 
   if (!capability || !supportsNucleus04Capability(capability)) {
     throw new Error(`OCTACORE_N04_CAPABILITY_NOT_DECLARED:${capability ?? ''}`);
   }
+  if (!context?.session || !context?.dataStream) {
+    throw new Error('OCTACORE_N04_RUNTIME_CONTEXT_REQUIRED');
+  }
   const { createNucleus04Runtime } = await import('@/lib/soul-core/Nucleus04Runtime');
   const runtime = createNucleus04Runtime({
-    session: context?.session ?? null,
-    dataStream: context.dataStream as N04MeshRuntimeContext['dataStream'],
+    session: context.session,
+    dataStream: context.dataStream,
   });
   const registered = runtime.processor.registeredCapabilities();
   if (!registered.includes(capability)) {
@@ -28,8 +31,8 @@ export async function executeOctaCoreN04(request: OctaCoreN04Request, context?: 
       capability: capability as Parameters<typeof runtime.processor.execute>[0]['capability'],
       input: request.payload,
     }, {
-      session: context?.session ?? null,
-      dataStream: context?.dataStream,
+      session: context.session,
+      dataStream: context.dataStream,
       metadata: {
         mesh: true,
         correlationId: request.correlation_id,
