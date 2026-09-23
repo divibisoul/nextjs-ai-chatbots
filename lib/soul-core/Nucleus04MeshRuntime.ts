@@ -81,6 +81,7 @@ export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOpt
     execute: (m: SoulMeshMessage | { kind:'local'; nucleus:'N04'; capability:string; payload:unknown; correlationId:string }) => {
       switch (m.capability) {
         case 'mesh.handshake': return { nucleus:'N04', protocol:'soul-mesh/1', contractVersion:SOUL_MESH_CONTRACT_VERSION, capabilities:SOUL_MESH_CAPABILITIES, transports:['http'], timestamp:Date.now() };
+        case 'mesh.discovery': return { nucleus:'N04', protocol:'soul-mesh/1', contractVersion:SOUL_MESH_CONTRACT_VERSION, capabilities:SOUL_MESH_CAPABILITIES, agents:agents.describe(), tools:['createDocument','updateDocument','getWeather','requestSuggestions'], peers:[...PEERS], channels:{ inbound:N04_IN_CHANNELS, outbound:N04_OUT_CHANNELS }, status:'online' };
         case 'mesh.ping': return { ok:true, nucleus:'N04', echoed:m.payload, processedAt:Date.now() };
         case 'mesh.describe': return { nucleus:'N04', protocol:'soul-mesh/1', contractVersion:SOUL_MESH_CONTRACT_VERSION, capabilities:SOUL_MESH_CAPABILITIES, agents:agents.describe(), tools:['createDocument','updateDocument','getWeather','requestSuggestions'], models:chatModels, peers:[...PEERS], channels:{ inbound:N04_IN_CHANNELS, outbound:N04_OUT_CHANNELS }, status:'online' };
         default: return { ok:true, nucleus:'N04', runtime:'nextjs-ai-chatbots', contractVersion:SOUL_MESH_CONTRACT_VERSION, authenticatedToolContext:Boolean(session?.user?.id), timestamp:Date.now() };
