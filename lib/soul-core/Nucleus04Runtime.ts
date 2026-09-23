@@ -3,6 +3,7 @@ import type { Session } from 'next-auth';
 import { myProvider } from '@/lib/ai/providers';
 import { nucleus04Processor, Nucleus04Processor, type Nucleus04Context } from './Nucleus04Processor';
 import { createNucleus04Tools, type Nucleus04ToolContext, type Nucleus04ToolId } from './Nucleus04ToolRegistry';
+import type { Nucleus04Capability } from './Nucleus04Capabilities';
 import { sendTo } from '@/lib/soul-mesh/peer-client';
 import type { ChatMessage } from '@/lib/types';
 
@@ -11,6 +12,18 @@ type ExecutableTool = { execute?: (input: unknown, options?: unknown) => unknown
 export function createNucleus04Runtime(context: Nucleus04ToolContext) {
   const processor = new Nucleus04Processor();
   const tools = createNucleus04Tools(context) as Record<Nucleus04ToolId, ExecutableTool>;
+
+  processor.registerHandler('octacore.execute', async (input, runtimeContext) => {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('OCTACORE_N04_PAYLOAD_MUST_BE_OBJECT');
+    const request = input as { capability?: unknown; payload?: unknown };
+    const capability = typeof request.capability === 'string' ? request.capability.trim() : '';
+    if (!capability || capability === 'octacore.execute') throw new Error('OCTACORE_N04_INNER_CAPABILITY_INVALID');
+    if (!supportsNucleus04Capability(capability)) throw new Error('OCTACORE_N04_CAPABILITY_NOT_DECLARED:' + capability);
+    return processor.execute(
+      { capability: capability as Nucleus04Capability, input: request.payload },
+      runtimeContext ?? (context as Nucleus04Context),
+    );
+  });
 
   processor.registerHandler('tool-execution', async (input) => {
     const request = input as { tool?: Nucleus04ToolId; arguments?: unknown };
