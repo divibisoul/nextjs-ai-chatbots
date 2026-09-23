@@ -38,19 +38,38 @@ export function validateMeshMessage(m: unknown): asserts m is SoulMeshMessage {
 }
 
 function result(message: SoulMeshMessage, payload: unknown, kind: SoulMeshMessage['kind'] = 'response'): SoulMeshMessage {
+  const id = crypto.randomUUID();
+  const nonce = crypto.randomUUID();
+  const timestamp = Date.now();
+  const legacy = {
+    version: '1.0',
+    contractVersion: SOUL_MESH_CONTRACT_VERSION,
+    messageId: id,
+    source: NUCLEUS_ID,
+    target: message.source,
+    timestamp,
+    nonce,
+    correlationId: message.correlationId,
+    type: kind === 'error' ? 'ERROR' : 'TASK_RESULT',
+    payload: { capability: message.capability ?? '', payload },
+  };
+  const secret = String(process.env.SOUL_MESH_HMAC_SECRET ?? '').trim();
+  const hmac = secret ? crypto.createHmac('sha256', secret).update(JSON.stringify(legacy), 'utf8').digest('hex') : '';
   return {
     protocol: 'soul-mesh/1',
     contractVersion: SOUL_MESH_CONTRACT_VERSION,
-    id: crypto.randomUUID(),
+    id,
     correlationId: message.correlationId,
     source: NUCLEUS_ID,
     target: message.source,
     kind,
     capability: message.capability,
     payload,
-    timestamp: Date.now(),
-    meta: { runtime: 'nextjs-ai-chatbots', transport: 'HTTP', encoding: 'json', version: SOUL_MESH_CONTRACT_VERSION, traceId: message.meta?.traceId ?? message.correlationId },
-  };
+    timestamp,
+    nonce,
+    ...(hmac ? { hmac } : {}),
+    meta: { runtime: 'nextjs-ai-chatbots', transport: 'HTTP', encoding: 'json', version: SOUL_MESH_CONTRACT_VERSION, traceId: message.meta?.traceId ?? message.correlationId, nonce },
+  } as SoulMeshMessage;
 }
 
 export function createN04MeshHandler(context?: N04MeshRuntimeContext) {
