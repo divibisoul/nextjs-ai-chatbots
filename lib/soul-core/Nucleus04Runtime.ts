@@ -30,6 +30,52 @@ export function createNucleus04Runtime(context: Nucleus04ToolContext) {
   });
   processor.registerHandler('streaming', async () => ({ ok: true, mode: 'native-chat-transport', nucleus: 'N04', message: 'Use the native chat streaming transport for streamed UI output; Mesh remains synchronous for request/response.' }));
 
+  processor.registerHandler('document.create', async (input, runtimeContext) =>
+    processor.execute(
+      { capability: 'tool-execution', input: { tool: 'createDocument', arguments: (input as { arguments?: unknown }).arguments ?? input } },
+      runtimeContext ?? (context as Nucleus04Context),
+    ),
+  );
+  processor.registerHandler('document.edit', async (input, runtimeContext) =>
+    processor.execute(
+      { capability: 'tool-execution', input: { tool: 'updateDocument', arguments: (input as { arguments?: unknown }).arguments ?? input } },
+      runtimeContext ?? (context as Nucleus04Context),
+    ),
+  );
+  processor.registerHandler('tool.run', async (input, runtimeContext) => {
+    const request = input as { tool?: string; arguments?: unknown };
+    if (!request.tool) throw new Error('TOOL_ID_REQUIRED');
+    return processor.execute(
+      { capability: 'tool-execution', input: { tool: request.tool, arguments: request.arguments ?? {} } },
+      runtimeContext ?? (context as Nucleus04Context),
+    );
+  });
+  processor.registerHandler('batch.process', async (input, runtimeContext) => {
+    const value = input as { jobs?: Array<{ capability?: string; input?: unknown }> };
+    if (!Array.isArray(value.jobs) || value.jobs.length === 0) throw new Error('BATCH_JOBS_REQUIRED');
+    return Promise.all(value.jobs.map(async (job) => {
+      const capability = typeof job.capability === 'string' ? job.capability.trim() : '';
+      if (!capability) throw new Error('BATCH_CAPABILITY_REQUIRED');
+      if (!processor.supports(capability)) throw new Error('BATCH_CAPABILITY_UNSUPPORTED:' + capability);
+      return processor.execute(
+        { capability: capability as Nucleus04Capability, input: job.input },
+        runtimeContext ?? (context as Nucleus04Context),
+      );
+    }));
+  });
+  processor.registerHandler('parallel.map', async (input, runtimeContext) => {
+    const value = input as { capability?: string; inputs?: unknown[] };
+    const capability = typeof value.capability === 'string' ? value.capability.trim() : '';
+    if (!capability || !processor.supports(capability)) throw new Error('PARALLEL_CAPABILITY_UNSUPPORTED:' + capability);
+    if (!Array.isArray(value.inputs) || value.inputs.length === 0) throw new Error('PARALLEL_INPUTS_REQUIRED');
+    return Promise.all(value.inputs.map((item) =>
+      processor.execute(
+        { capability: capability as Nucleus04Capability, input: item },
+        runtimeContext ?? (context as Nucleus04Context),
+      ),
+    ));
+  });
+
   processor.registerPilot({
     id: 'n04-provider-adapter',
     execute: async (input) => {
