@@ -3,6 +3,7 @@ import { isSoulMeshMessage } from './SoulMeshProtocol';
 import type { Nucleus04ToolContext } from '@/lib/soul-core/Nucleus04ToolRegistry';
 import type { Nucleus04Context } from '@/lib/soul-core/Nucleus04Processor';
 import { supportsNucleus04Capability } from '@/lib/soul-core/Nucleus04Capabilities';
+import { executeOctaCoreN04 } from '@/lib/octacore/OctaCoreN04Adapter';
 
 export const NUCLEUS_ID = 'N04' as const;
 export const SOUL_MESH_CONTRACT_VERSION = '1.1.0' as const;
@@ -63,6 +64,18 @@ export function createN04MeshHandler(context?: N04MeshRuntimeContext) {
 
     const capability = message.capability;
     if (!capability) throw new Error('MISSING_CAPABILITY');
+    if (capability === 'octacore.execute') {
+      const input = message.payload;
+      if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('OCTACORE_N04_PAYLOAD_MUST_BE_OBJECT');
+      const value = input as Record<string, unknown>;
+      const request = {
+        capability: typeof value.capability === 'string' ? value.capability : '',
+        payload: value.payload,
+        job_id: typeof value.job_id === 'string' ? value.job_id : undefined,
+        correlation_id: message.correlationId,
+      };
+      return result(message, await executeOctaCoreN04(request, context));
+    }
     const handler = handlers[capability];
     try {
       if (handler) return result(message, await handler(message.payload));
