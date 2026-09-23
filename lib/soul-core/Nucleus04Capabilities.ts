@@ -13,7 +13,8 @@ export type Nucleus04Capability =
   | 'tool.run'
   | 'workflow.execute'
   | 'schedule.task'
-  | 'parallel.map';
+  | 'parallel.map'
+  | 'octacore.execute';
 
 export const NUCLEUS_04_CAPABILITIES: readonly Nucleus04Capability[] = [
   'ai-pilot',
@@ -31,6 +32,7 @@ export const NUCLEUS_04_CAPABILITIES: readonly Nucleus04Capability[] = [
   'workflow.execute',
   'schedule.task',
   'parallel.map',
+  'octacore.execute',
 ] as const;
 
 export function supportsNucleus04Capability(
