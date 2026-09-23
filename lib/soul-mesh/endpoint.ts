@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto';
 import type { SoulMeshMessage } from './SoulMeshProtocol';
 import { isSoulMeshMessage } from './SoulMeshProtocol';
 import type { Nucleus04ToolContext } from '@/lib/soul-core/Nucleus04ToolRegistry';
@@ -54,7 +55,7 @@ function result(message: SoulMeshMessage, payload: unknown, kind: SoulMeshMessag
     payload: { capability: message.capability ?? '', payload },
   };
   const secret = String(process.env.SOUL_MESH_HMAC_SECRET ?? '').trim();
-  const hmac = secret ? crypto.createHmac('sha256', secret).update(JSON.stringify(legacy), 'utf8').digest('hex') : '';
+  const hmac = secret ? createHmac('sha256', secret).update(JSON.stringify(legacy), 'utf8').digest('hex') : '';
   return {
     protocol: 'soul-mesh/1',
     contractVersion: SOUL_MESH_CONTRACT_VERSION,
