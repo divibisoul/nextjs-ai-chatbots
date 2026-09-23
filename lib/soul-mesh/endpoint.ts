@@ -74,7 +74,18 @@ export function createN04MeshHandler(context?: N04MeshRuntimeContext) {
         correlation_id: message.correlationId,
       };
       const { executeOctaCoreN04 } = await import('@/lib/octacore/OctaCoreN04Adapter');
-      return result(message, await executeOctaCoreN04(request, context));
+      try {
+        return result(message, await executeOctaCoreN04(request, context));
+      } catch (error) {
+        return result(
+          message,
+          {
+            code: 'OCTACORE_N04_EXECUTION_ERROR',
+            detail: error instanceof Error ? error.message : String(error),
+          },
+          'error',
+        );
+      }
     }
     if (capability === 'mesh.discovery' || capability === 'mesh.describe' || capability === 'mesh.ping' || capability === 'mesh.handshake') {
       const { createNucleus04MeshHandlers } = await import('@/lib/soul-core/Nucleus04MeshRuntime');
