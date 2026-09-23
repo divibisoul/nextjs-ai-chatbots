@@ -15,9 +15,6 @@ export async function executeOctaCoreN04(request: OctaCoreN04Request, context?: 
   if (!capability || !supportsNucleus04Capability(capability)) {
     throw new Error(`OCTACORE_N04_CAPABILITY_NOT_DECLARED:${capability ?? ''}`);
   }
-  if (!context?.session) {
-    throw new Error('OCTACORE_N04_AUTH_CONTEXT_REQUIRED');
-  }
   const runtime = createNucleus04Runtime({
     session: context.session,
     dataStream: context.dataStream as N04MeshRuntimeContext['dataStream'],
