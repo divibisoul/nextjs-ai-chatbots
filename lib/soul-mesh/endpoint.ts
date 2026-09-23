@@ -3,7 +3,6 @@ import { isSoulMeshMessage } from './SoulMeshProtocol';
 import type { Nucleus04ToolContext } from '@/lib/soul-core/Nucleus04ToolRegistry';
 import type { Nucleus04Context } from '@/lib/soul-core/Nucleus04Processor';
 import { supportsNucleus04Capability } from '@/lib/soul-core/Nucleus04Capabilities';
-import { executeOctaCoreN04 } from '@/lib/octacore/OctaCoreN04Adapter';
 
 export const NUCLEUS_ID = 'N04' as const;
 export const SOUL_MESH_CONTRACT_VERSION = '1.1.0' as const;
@@ -74,6 +73,7 @@ export function createN04MeshHandler(context?: N04MeshRuntimeContext) {
         job_id: typeof value.job_id === 'string' ? value.job_id : undefined,
         correlation_id: message.correlationId,
       };
+      const { executeOctaCoreN04 } = await import('@/lib/octacore/OctaCoreN04Adapter');
       return result(message, await executeOctaCoreN04(request, context));
     }
     if (capability === 'mesh.discovery' || capability === 'mesh.describe' || capability === 'mesh.ping' || capability === 'mesh.handshake') {
