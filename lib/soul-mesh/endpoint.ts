@@ -76,6 +76,13 @@ export function createN04MeshHandler(context?: N04MeshRuntimeContext) {
       };
       return result(message, await executeOctaCoreN04(request, context));
     }
+    if (capability === 'mesh.discovery' || capability === 'mesh.describe' || capability === 'mesh.ping' || capability === 'mesh.handshake') {
+      const { createNucleus04MeshHandlers } = await import('@/lib/soul-core/Nucleus04MeshRuntime');
+      const meshHandlers = createNucleus04MeshHandlers({ session: context?.session ?? null });
+      const meshHandler = (meshHandlers as Record<string, (payload: unknown) => unknown | Promise<unknown>>)[capability];
+      if (!meshHandler) throw new Error('MESH_CAPABILITY_NOT_IMPLEMENTED:' + capability);
+      return result(message, await meshHandler(message.payload));
+    }
     const handler = handlers[capability];
     try {
       if (handler) return result(message, await handler(message.payload));
