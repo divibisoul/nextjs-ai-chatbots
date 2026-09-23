@@ -28,8 +28,8 @@ export async function executeOctaCoreN04(request: OctaCoreN04Request, context?: 
       capability: capability as Parameters<typeof runtime.processor.execute>[0]['capability'],
       input: request.payload,
     }, {
-      session: context.session,
-      dataStream: context.dataStream,
+      session: context?.session ?? null,
+      dataStream: context?.dataStream,
       metadata: {
         mesh: true,
         correlationId: request.correlation_id,
