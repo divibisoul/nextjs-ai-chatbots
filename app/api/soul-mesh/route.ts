@@ -6,6 +6,7 @@ import type { ChatMessage } from '@/lib/types';
 import type { SoulMeshMessage } from '@/lib/soul-mesh/SoulMeshProtocol';
 import { createN04MeshHandler } from '@/lib/soul-mesh/endpoint';
 import { NUCLEUS_04_CAPABILITIES } from '@/lib/soul-core/Nucleus04Capabilities';
+import { saraHortaCoreAssess } from '@/lib/sara/SARAClient';
 
 const NUCLEUS_ID = 'N04' as const;
 const PEERS = ['N01', 'N02', 'N03', 'N05', 'N06', 'N07'] as const;
@@ -103,6 +104,48 @@ export async function POST(request: Request) {
   const authorization = authorizationState(request, message);
   if (authorization === 'misconfigured') return NextResponse.json({ error: 'SOUL_MESH_TOKEN_NOT_CONFIGURED' }, { status: 503 });
   if (authorization === 'unauthorized') return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
+
+  if (message.capability === 'sara.hortacore.assess') {
+    const payload = message.payload;
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      return NextResponse.json({
+        protocol: 'soul-mesh/1', contractVersion: '1.1.0', id: crypto.randomUUID(),
+        correlationId: message.correlationId, source: NUCLEUS_ID, target: message.source,
+        kind: 'error', capability: message.capability,
+        payload: { code: 'SARA_HORTACORE_PAYLOAD_INVALID' }, timestamp: Date.now(),
+      }, { status: 422 });
+    }
+    const proposal = (payload as { proposal?: unknown }).proposal;
+    if (!proposal || typeof proposal !== 'object' || Array.isArray(proposal)) {
+      return NextResponse.json({
+        protocol: 'soul-mesh/1', contractVersion: '1.1.0', id: crypto.randomUUID(),
+        correlationId: message.correlationId, source: NUCLEUS_ID, target: message.source,
+        kind: 'error', capability: message.capability,
+        payload: { code: 'SARA_HORTACORE_PROPOSAL_REQUIRED' }, timestamp: Date.now(),
+      }, { status: 422 });
+    }
+    try {
+      const assessment = await saraHortaCoreAssess(
+        proposal as Parameters<typeof saraHortaCoreAssess>[0],
+        message.correlationId,
+      );
+      return NextResponse.json({
+        protocol: 'soul-mesh/1', contractVersion: '1.1.0', id: crypto.randomUUID(),
+        correlationId: message.correlationId, source: NUCLEUS_ID, target: message.source,
+        kind: 'response', capability: message.capability,
+        payload: assessment, timestamp: Date.now(),
+        meta: { runtime: 'nextjs-ai-chatbots', transport: 'HTTP', encoding: 'json', version: '1.1.0', traceId: message.meta?.traceId ?? message.correlationId },
+      }, { status: 200 });
+    } catch (error) {
+      return NextResponse.json({
+        protocol: 'soul-mesh/1', contractVersion: '1.1.0', id: crypto.randomUUID(),
+        correlationId: message.correlationId, source: NUCLEUS_ID, target: message.source,
+        kind: 'error', capability: message.capability,
+        payload: { code: error instanceof Error ? error.message : 'SARA_HORTACORE_REQUEST_FAILED' },
+        timestamp: Date.now(),
+      }, { status: 502 });
+    }
+  }
 
   if (sessionlessCapability(message.capability)) {
     if (message.capability === 'mesh.describe' || message.capability === 'mesh.handshake') return NextResponse.json(discoveryResponse(message), { status: 200 });
