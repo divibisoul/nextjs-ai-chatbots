@@ -3,9 +3,10 @@ import type { SoulMeshMessage } from './SoulMeshProtocol';
 
 const MAX_CLOCK_SKEW_MS = 30_000;
 
-function canonicalize(message: SoulMeshMessage): string {
+function canonicalize(message: SoulMeshMessage, nonce: string): string {
   return JSON.stringify({
     protocol: message.protocol,
+    contractVersion: message.contractVersion,
     id: message.id,
     correlationId: message.correlationId,
     source: message.source,
@@ -14,6 +15,9 @@ function canonicalize(message: SoulMeshMessage): string {
     capability: message.capability ?? null,
     payload: message.payload,
     timestamp: message.timestamp,
+    transport: message.meta?.transport ?? null,
+    meta: message.meta ?? null,
+    nonce,
   });
 }
 
@@ -23,7 +27,7 @@ export function createSoulMeshNonce(): string {
 
 export function signSoulMeshMessage(message: SoulMeshMessage, secret: string, nonce: string): string {
   if (!secret) throw new Error('SOUL_MESH_HMAC_SECRET_MISSING');
-  return createHmac('sha256', secret).update(`${nonce}.${canonicalize(message)}`, 'utf8').digest('hex');
+  return createHmac('sha256', secret).update(canonicalize(message, nonce), 'utf8').digest('hex');
 }
 
 export function verifySoulMeshMessage(message: SoulMeshMessage, secret: string, nonce: string, hmac: string, now = Date.now()): boolean {

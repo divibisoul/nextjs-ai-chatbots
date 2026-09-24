@@ -1,6 +1,7 @@
 export type Nucleus04Capability =
   | 'ai-pilot'
   | 'tool-execution'
+  | 'tool.execute'
   | 'artifact-processing'
   | 'document-processing'
   | 'context-orchestration'
@@ -18,6 +19,7 @@ export type Nucleus04Capability =
 export const NUCLEUS_04_CAPABILITIES: readonly Nucleus04Capability[] = [
   'ai-pilot',
   'tool-execution',
+  'tool.execute',
   'artifact-processing',
   'document-processing',
   'context-orchestration',

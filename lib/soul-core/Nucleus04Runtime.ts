@@ -12,19 +12,21 @@ export function createNucleus04Runtime(context: Nucleus04ToolContext) {
   const processor = new Nucleus04Processor();
   const tools = createNucleus04Tools(context) as Record<Nucleus04ToolId, ExecutableTool>;
 
-  processor.registerHandler('tool-execution', async (input) => {
+  const executeTool = async (input: unknown) => {
     const request = input as { tool?: Nucleus04ToolId; arguments?: unknown };
     if (!request.tool) throw new Error('TOOL_ID_REQUIRED');
     const selected = tools[request.tool];
     if (!selected?.execute) throw new Error(`Nucleus 04 tool is unavailable: ${request.tool}`);
     return selected.execute(request.arguments ?? {});
-  });
+  };
 
+  processor.registerHandler('tool-execution', executeTool);
+  processor.registerHandler('tool.execute', executeTool);
   processor.registerHandler('artifact-processing', async (input, runtimeContext) => processor.execute({ capability: 'tool-execution', input }, runtimeContext ?? (context as Nucleus04Context)));
   processor.registerHandler('document-processing', async (input, runtimeContext) => processor.execute({ capability: 'tool-execution', input }, runtimeContext ?? (context as Nucleus04Context)));
   processor.registerHandler('context-orchestration', async (input) => ({ nucleus: 'N04', protocol: 'soul-mesh/1', context: input, timestamp: Date.now() }));
   processor.registerHandler('mesh-communication', async (input) => {
-    const request = input as { target: 'N01' | 'N02' | 'N03' | 'N05' | 'N06'; capability: string; payload: unknown };
+    const request = input as { target: 'N01' | 'N02' | 'N03' | 'N05' | 'N06' | 'N07'; capability: string; payload: unknown };
     if (!request.target || !request.capability) throw new Error('MESH_REQUEST_INVALID');
     return sendTo(request.target, request.capability, request.payload);
   });

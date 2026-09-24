@@ -19,7 +19,7 @@ type ToolRequest = { tool: ToolId; arguments: unknown };
 type AiPilotRequest = { prompt?: string; system?: string; model?: string };
 const NOOP_DATA_STREAM = { write: () => undefined } as unknown as UIMessageStreamWriter<ChatMessage>;
 const AVAILABLE_MODELS = new Set(chatModels.map((model) => model.id));
-const PEERS = ['N01', 'N02', 'N03', 'N05', 'N06'] as const;
+const PEERS = ['N01', 'N02', 'N03', 'N05', 'N06', 'N07'] as const;
 type Tool = { execute?: (args: unknown) => unknown | Promise<unknown> };
 
 function assertObject(value: unknown, name: string): Record<string, unknown> {
@@ -82,8 +82,29 @@ export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOpt
       switch (m.capability) {
         case 'mesh.handshake': return { nucleus:'N04', protocol:'soul-mesh/1', contractVersion:SOUL_MESH_CONTRACT_VERSION, capabilities:SOUL_MESH_CAPABILITIES, transports:['http'], timestamp:Date.now() };
         case 'mesh.ping': return { ok:true, nucleus:'N04', echoed:m.payload, processedAt:Date.now() };
-        case 'mesh.describe': return { nucleus:'N04', protocol:'soul-mesh/1', contractVersion:SOUL_MESH_CONTRACT_VERSION, capabilities:SOUL_MESH_CAPABILITIES, agents:agents.describe(), tools:['createDocument','updateDocument','getWeather','requestSuggestions'], models:chatModels, peers:[...PEERS], channels:{ inbound:N04_IN_CHANNELS, outbound:N04_OUT_CHANNELS }, status:'online' };
-        default: return { ok:true, nucleus:'N04', runtime:'nextjs-ai-chatbots', contractVersion:SOUL_MESH_CONTRACT_VERSION, authenticatedToolContext:Boolean(session?.user?.id), timestamp:Date.now() };
+        case 'mesh.describe': {
+          const executableCapabilities = agents.describe().flatMap(agent => agent.capabilities);
+          return {
+            nucleus:'N04', protocol:'soul-mesh/1', contractVersion:SOUL_MESH_CONTRACT_VERSION,
+            capabilities:SOUL_MESH_CAPABILITIES,
+            executableCapabilities:[...new Set(executableCapabilities)],
+            agents:agents.describe(), tools:Object.keys(tools),
+            models:chatModels, peers:[...PEERS],
+            channels:{ inbound:N04_IN_CHANNELS, outbound:N04_OUT_CHANNELS },
+            status:'online'
+          };
+        }
+        case 'core.health':
+          return {
+            nucleus:'N04',
+            ready:true,
+            authenticatedToolContext:Boolean(session?.user?.id),
+            executableCapabilities:agents.describe().flatMap(agent => agent.capabilities),
+            providerModels:[...AVAILABLE_MODELS],
+            timestamp:Date.now()
+          };
+        default:
+          throw new Error('N04_CAPABILITY_NOT_REGISTERED');
       }
     },
   });

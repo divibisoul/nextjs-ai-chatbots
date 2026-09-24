@@ -34,6 +34,10 @@ export const requestSuggestions = ({
         };
       }
 
+      if (document.userId !== userId) {
+        throw new Error('DOCUMENT_ACCESS_FORBIDDEN');
+      }
+
       const suggestions: Suggestion[] = [];
 
       const { elementStream } = streamObject({
