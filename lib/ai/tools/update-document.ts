@@ -28,6 +28,10 @@ export const updateDocument = ({ session, dataStream }: UpdateDocumentProps) =>
         };
       }
 
+      if (!session.user?.id || document.userId !== session.user.id) {
+        throw new Error('DOCUMENT_ACCESS_FORBIDDEN');
+      }
+
       dataStream.write({
         type: 'data-clear',
         data: null,
