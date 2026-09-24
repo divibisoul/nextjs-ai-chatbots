@@ -85,6 +85,7 @@ function discoveryResponse(message: SoulMeshMessage) {
       peers: [...PEERS],
       status: 'online',
       declaredCapabilities: [...NUCLEUS_04_CAPABILITIES],
+      federatedCapabilities: ['sara.hortacore.assess'],
       executableCapabilities: NUCLEUS_04_CAPABILITIES.filter(capability => capability !== 'ai-pilot'),
       transports: ['HTTP', 'REALTIME'],
       channels: { in: PEERS.map(peer => `N04.IN.${peer}`), out: PEERS.map(peer => `N04.OUT.${peer}`) },
