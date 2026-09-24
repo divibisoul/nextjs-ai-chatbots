@@ -220,3 +220,31 @@ export async function saraTrace(cycleId: string): Promise<Record<string, unknown
     correlationId: id,
   })) as Record<string, unknown>;
 }
+
+export type SaraHortaCoreProposal = {
+  name?: string;
+  description: string;
+  license?: string;
+} & Record<string, unknown>;
+
+export type SaraHortaCoreAssessment = {
+  request_id: string;
+  correlation_id: string;
+  operation: 'hortacore_assess';
+  authority: 'AeternumChimeraBridge';
+  assessment: Record<string, unknown>;
+} & Record<string, unknown>;
+
+export async function saraHortaCoreAssess(
+  proposal: SaraHortaCoreProposal,
+  correlationId?: string,
+): Promise<SaraHortaCoreAssessment> {
+  if (!proposal || typeof proposal.description !== 'string' || !proposal.description.trim()) {
+    throw new Error('SARA_HORTACORE_PROPOSAL_REQUIRED');
+  }
+  return (await saraRequest('/v1/hortacore/assess', {
+    method: 'POST',
+    body: { proposal },
+    correlationId,
+  })) as SaraHortaCoreAssessment;
+}
