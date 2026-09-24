@@ -1,35 +1,49 @@
-import { randomUUID } from 'crypto';
+/** Compatibility facade; execution is delegated to the canonical authenticated N04 peer client. */
 import type { SoulMeshMessage, SoulNucleus } from './SoulMeshProtocol';
+import { sendTo as sendCanonicalTo, PEERS as CANONICAL_PEERS, type N04Peer } from './peer-client';
 
-export type N04Peer = Exclude<SoulNucleus, 'N04' | 'N07'>;
-const PEERS: readonly N04Peer[] = ['N01', 'N02', 'N03', 'N05', 'N06'];
-const ENV: Record<N04Peer, string> = { N01: 'SOUL_MESH_N01_URL', N02: 'SOUL_MESH_N02_URL', N03: 'SOUL_MESH_N03_URL', N05: 'SOUL_MESH_N05_URL', N06: 'SOUL_MESH_N06_URL' };
+export type { N04Peer };
+export const PEERS = CANONICAL_PEERS;
+const ENV: Record<N04Peer, string> = Object.fromEntries(
+  CANONICAL_PEERS.map(peer => [peer, `SOUL_MESH_${peer}_URL`]),
+) as Record<N04Peer, string>;
 
 export function getConfiguredPeers() {
-  return PEERS.map(id => ({ id, url: process.env[ENV[id]]?.trim().replace(/\/$/, '') ?? '' })).filter(peer => Boolean(peer.url));
+  return PEERS.map(id => ({
+    id,
+    url: process.env[ENV[id]]?.trim().replace(/\/$/, '') ?? '',
+  })).filter(peer => Boolean(peer.url));
 }
 
 export function createRequest(target: N04Peer, capability: string, payload: unknown): SoulMeshMessage {
-  const id = randomUUID();
-  return { protocol: 'soul-mesh/1', contractVersion: '1.1.0', id, correlationId: id, source: 'N04', target, kind: 'request', capability, payload, timestamp: Date.now() };
+  const id = crypto.randomUUID();
+  return {
+    protocol: 'soul-mesh/1',
+    contractVersion: '1.1.0',
+    id,
+    correlationId: id,
+    source: 'N04',
+    target,
+    kind: 'request',
+    capability,
+    payload,
+    timestamp: Date.now(),
+    meta: { runtime: 'nextjs-ai-chatbots', transport: 'HTTP', encoding: 'json', version: '1.1.0', nonce: crypto.randomUUID().replaceAll('-', '').padEnd(32, '0').slice(0, 32), traceId: id },
+  };
 }
 
 export async function sendTo(target: N04Peer, capability: string, payload: unknown, timeoutMs = 15000): Promise<unknown> {
-  const peer = getConfiguredPeers().find(item => item.id === target);
-  if (!peer) throw new Error(`SOUL_MESH_PEER_URL_NOT_CONFIGURED:${target}`);
-  const message = createRequest(target, capability, payload);
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const token = process.env.SOUL_MESH_TOKEN;
-    const response = await fetch(`${peer.url}/api/soul-mesh`, { method: 'POST', headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(message), signal: controller.signal, cache: 'no-store' });
-    const body = await response.json().catch(() => null) as SoulMeshMessage | null;
-    if (!response.ok) throw new Error(`SOUL_MESH_REMOTE_ERROR:${target}:${response.status}`);
-    if (!body || body.protocol !== message.protocol || body.contractVersion !== message.contractVersion || body.correlationId !== message.correlationId || body.source !== target || body.target !== 'N04') throw new Error('SOUL_MESH_RESPONSE_INVALID');
-    if (body.kind === 'error') throw new Error(`SOUL_MESH_REMOTE_ERROR:${target}`);
-    return body.payload;
-  } finally { clearTimeout(timer); }
+  return (await sendCanonicalTo(target, capability, payload, timeoutMs, 2)).payload;
 }
 
-export async function probePeer(target: N04Peer) { try { return { id: target, reachable: true, details: await sendTo(target, 'mesh.describe', { from: 'N04' }) }; } catch (error) { return { id: target, reachable: false, error: error instanceof Error ? error.message : String(error) }; } }
-export async function probeAllPeers() { return Promise.all(PEERS.map(probePeer)); }
+export async function probePeer(target: N04Peer) {
+  try {
+    return { id: target, reachable: true, details: await sendTo(target, 'mesh.describe', { from: 'N04' }) };
+  } catch (error) {
+    return { id: target, reachable: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+export async function probeAllPeers() {
+  return Promise.all(PEERS.map(probePeer));
+}
