@@ -21,6 +21,7 @@ export class N04MeshBootstrap {
       N03: process.env.SOUL_MESH_N03_URL,
       N05: process.env.SOUL_MESH_N05_URL,
       N06: process.env.SOUL_MESH_N06_URL,
+      N07: process.env.SOUL_MESH_N07_URL,
     };
   }
 
