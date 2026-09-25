@@ -18,13 +18,13 @@ export interface N04SynergyPlan {
   rationale: readonly string[];
 }
 
-const PEERS: readonly SoulNucleus[] = ['N01', 'N02', 'N03', 'N04', 'N05', 'N06'];
+const PEERS: readonly SoulNucleus[] = ['N01', 'N02', 'N03', 'N04', 'N05', 'N06', 'N07'];
 
 /**
  * Computes cooperative capability composition without replacing any nucleus.
  * A composite capability is derived when two or more independent nuclei expose
  * compatible capabilities. The engine only plans; execution stays in the
- * existing Soul Mesh/runtime so the six nuclei remain independently deployable.
+ * existing Soul Mesh/runtime so all nuclei remain independently deployable.
  */
 export class N04SynergyEngine {
   plan(
