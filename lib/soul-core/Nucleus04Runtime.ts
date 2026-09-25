@@ -24,7 +24,7 @@ export function createNucleus04Runtime(context: Nucleus04ToolContext) {
   processor.registerHandler('document-processing', async (input, runtimeContext) => processor.execute({ capability: 'tool-execution', input }, runtimeContext ?? (context as Nucleus04Context)));
   processor.registerHandler('context-orchestration', async (input) => ({ nucleus: 'N04', protocol: 'soul-mesh/1', context: input, timestamp: Date.now() }));
   processor.registerHandler('mesh-communication', async (input) => {
-    const request = input as { target: 'N01' | 'N02' | 'N03' | 'N05' | 'N06'; capability: string; payload: unknown };
+    const request = input as { target: 'N01' | 'N02' | 'N03' | 'N05' | 'N06' | 'N07'; capability: string; payload: unknown };
     if (!request.target || !request.capability) throw new Error('MESH_REQUEST_INVALID');
     return sendTo(request.target, request.capability, request.payload);
   });
