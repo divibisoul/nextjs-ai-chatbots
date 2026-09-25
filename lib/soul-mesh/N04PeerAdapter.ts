@@ -3,7 +3,7 @@ import type { SoulMeshMessage, SoulNucleus } from './SoulMeshProtocol';
 
 export type N04Peer = Exclude<SoulNucleus, 'N04'>;
 const PEERS: readonly N04Peer[] = ['N01', 'N02', 'N03', 'N05', 'N06', 'N07'];
-const URL_ENV: Record<N04Peer, string> = { N01: 'SOUL_MESH_N01_URL', N02: 'SOUL_MESH_N02_URL', N03: 'SOUL_MESH_N03_URL', N05: 'SOUL_MESH_N05_URL', N06: 'SOUL_MESH_N06_URL' };
+const URL_ENV: Record<N04Peer, string> = { N01: 'SOUL_MESH_N01_URL', N02: 'SOUL_MESH_N02_URL', N03: 'SOUL_MESH_N03_URL', N05: 'SOUL_MESH_N05_URL', N06: 'SOUL_MESH_N06_URL', N07: 'SOUL_MESH_N07_URL' };
 
 export function getN04PeerConfig() {
   return PEERS.map(nucleus => ({ nucleus, url: process.env[URL_ENV[nucleus]]?.trim().replace(/\/$/, '') ?? '' }));
