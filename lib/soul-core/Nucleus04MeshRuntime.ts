@@ -19,7 +19,7 @@ type ToolRequest = { tool: ToolId; arguments: unknown };
 type AiPilotRequest = { prompt?: string; system?: string; model?: string };
 const NOOP_DATA_STREAM = { write: () => undefined } as unknown as UIMessageStreamWriter<ChatMessage>;
 const AVAILABLE_MODELS = new Set(chatModels.map((model) => model.id));
-const PEERS = ['N01', 'N02', 'N03', 'N05', 'N06'] as const;
+const PEERS = ['N01', 'N02', 'N03', 'N05', 'N06', 'N07'] as const;
 type Tool = { execute?: (args: unknown) => unknown | Promise<unknown> };
 
 function assertObject(value: unknown, name: string): Record<string, unknown> {
