@@ -4,6 +4,7 @@ import type { UIMessageStreamWriter } from 'ai';
 import type { ChatMessage } from '@/lib/types';
 import type { SoulMeshMessage } from '@/lib/soul-mesh/SoulMeshProtocol';
 import { createN04MeshHandler } from '@/lib/soul-mesh/endpoint';
+import { forwardClareiraToN01, clareiraMetrics } from '@/lib/soul-mesh/ClareiraBridge';
 
 function authorizationState(request: Request): 'authorized' | 'unauthorized' | 'misconfigured' {
   const token = process.env.SOUL_MESH_TOKEN?.trim();
@@ -27,6 +28,8 @@ export async function POST(request: Request) {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ error: 'UNAUTHENTICATED_SESSION' }, { status: 401 });
+    if (message.capability === 'clareira.ingest') return NextResponse.json(await forwardClareiraToN01((message.payload as any)?.packet));
+    if (message.capability === 'clareira.metrics') return NextResponse.json(clareiraMetrics());
     const handleMeshMessage = createN04MeshHandler({ session, dataStream: createMeshDataStream() });
     const result = await handleMeshMessage(message);
     return NextResponse.json(result, { status: result.kind === 'error' ? 502 : 200 });
