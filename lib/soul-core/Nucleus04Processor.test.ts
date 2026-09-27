@@ -5,7 +5,7 @@ import { Nucleus04Processor } from './Nucleus04Processor';
 
 test('Nucleus 04 exposes the complete declared capability surface', () => {
   const processor = new Nucleus04Processor();
-  assert.equal(NUCLEUS_04_CAPABILITIES.length, 15);
+  assert.equal(NUCLEUS_04_CAPABILITIES.length, 16);
   for (const capability of NUCLEUS_04_CAPABILITIES) {
     assert.equal(processor.supports(capability), true);
   }
@@ -14,7 +14,7 @@ test('Nucleus 04 exposes the complete declared capability surface', () => {
 
 test('Nucleus 04 reports capability registration gaps instead of hiding them', () => {
   const processor = new Nucleus04Processor();
-  assert.equal(processor.missingCapabilities().length, 15);
+  assert.equal(processor.missingCapabilities().length, 16);
   processor.registerHandler('tool-execution', async (input) => ({ ok: true, input }));
   assert.equal(processor.missingCapabilities().includes('tool-execution'), false);
 });

@@ -3,6 +3,8 @@ import type { Session } from 'next-auth';
 import { myProvider } from '@/lib/ai/providers';
 import { nucleus04Processor, Nucleus04Processor, type Nucleus04Context } from './Nucleus04Processor';
 import { createNucleus04Tools, type Nucleus04ToolContext, type Nucleus04ToolId } from './Nucleus04ToolRegistry';
+import { supportsNucleus04Capability } from './Nucleus04Capabilities';
+import type { Nucleus04Capability } from './Nucleus04Capabilities';
 import { sendTo } from '@/lib/soul-mesh/peer-client';
 import type { ChatMessage } from '@/lib/types';
 
@@ -11,6 +13,18 @@ type ExecutableTool = { execute?: (input: unknown, options?: unknown) => unknown
 export function createNucleus04Runtime(context: Nucleus04ToolContext) {
   const processor = new Nucleus04Processor();
   const tools = createNucleus04Tools(context) as Record<Nucleus04ToolId, ExecutableTool>;
+
+  processor.registerHandler('octacore.execute', async (input, runtimeContext) => {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('OCTACORE_N04_PAYLOAD_MUST_BE_OBJECT');
+    const request = input as { capability?: unknown; payload?: unknown };
+    const capability = typeof request.capability === 'string' ? request.capability.trim() : '';
+    if (!capability || capability === 'octacore.execute') throw new Error('OCTACORE_N04_INNER_CAPABILITY_INVALID');
+    if (!supportsNucleus04Capability(capability)) throw new Error('OCTACORE_N04_CAPABILITY_NOT_DECLARED:' + capability);
+    return processor.execute(
+      { capability: capability as Nucleus04Capability, input: request.payload },
+      runtimeContext ?? (context as Nucleus04Context),
+    );
+  });
 
   processor.registerHandler('tool-execution', async (input) => {
     const request = input as { tool?: Nucleus04ToolId; arguments?: unknown };
@@ -29,6 +43,52 @@ export function createNucleus04Runtime(context: Nucleus04ToolContext) {
     return sendTo(request.target, request.capability, request.payload);
   });
   processor.registerHandler('streaming', async () => ({ ok: true, mode: 'native-chat-transport', nucleus: 'N04', message: 'Use the native chat streaming transport for streamed UI output; Mesh remains synchronous for request/response.' }));
+
+  processor.registerHandler('document.create', async (input, runtimeContext) =>
+    processor.execute(
+      { capability: 'tool-execution', input: { tool: 'createDocument', arguments: (input as { arguments?: unknown }).arguments ?? input } },
+      runtimeContext ?? (context as Nucleus04Context),
+    ),
+  );
+  processor.registerHandler('document.edit', async (input, runtimeContext) =>
+    processor.execute(
+      { capability: 'tool-execution', input: { tool: 'updateDocument', arguments: (input as { arguments?: unknown }).arguments ?? input } },
+      runtimeContext ?? (context as Nucleus04Context),
+    ),
+  );
+  processor.registerHandler('tool.run', async (input, runtimeContext) => {
+    const request = input as { tool?: string; arguments?: unknown };
+    if (!request.tool) throw new Error('TOOL_ID_REQUIRED');
+    return processor.execute(
+      { capability: 'tool-execution', input: { tool: request.tool, arguments: request.arguments ?? {} } },
+      runtimeContext ?? (context as Nucleus04Context),
+    );
+  });
+  processor.registerHandler('batch.process', async (input, runtimeContext) => {
+    const value = input as { jobs?: Array<{ capability?: string; input?: unknown }> };
+    if (!Array.isArray(value.jobs) || value.jobs.length === 0) throw new Error('BATCH_JOBS_REQUIRED');
+    return Promise.all(value.jobs.map(async (job) => {
+      const capability = typeof job.capability === 'string' ? job.capability.trim() : '';
+      if (!capability) throw new Error('BATCH_CAPABILITY_REQUIRED');
+      if (!processor.supports(capability)) throw new Error('BATCH_CAPABILITY_UNSUPPORTED:' + capability);
+      return processor.execute(
+        { capability: capability as Nucleus04Capability, input: job.input },
+        runtimeContext ?? (context as Nucleus04Context),
+      );
+    }));
+  });
+  processor.registerHandler('parallel.map', async (input, runtimeContext) => {
+    const value = input as { capability?: string; inputs?: unknown[] };
+    const capability = typeof value.capability === 'string' ? value.capability.trim() : '';
+    if (!capability || !processor.supports(capability)) throw new Error('PARALLEL_CAPABILITY_UNSUPPORTED:' + capability);
+    if (!Array.isArray(value.inputs) || value.inputs.length === 0) throw new Error('PARALLEL_INPUTS_REQUIRED');
+    return Promise.all(value.inputs.map((item) =>
+      processor.execute(
+        { capability: capability as Nucleus04Capability, input: item },
+        runtimeContext ?? (context as Nucleus04Context),
+      ),
+    ));
+  });
 
   processor.registerPilot({
     id: 'n04-provider-adapter',
