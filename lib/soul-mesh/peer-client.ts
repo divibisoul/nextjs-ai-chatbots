@@ -133,6 +133,7 @@ export async function sendTo(
     capability,
     payload,
     timestamp: Date.now(),
+    ...(nonce ? { nonce } : {}),
     meta: {
       runtime: 'nextjs-ai-chatbots',
       transport: 'HTTP',
