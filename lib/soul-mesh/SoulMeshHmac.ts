@@ -79,6 +79,7 @@ export function verifySoulMeshRequest(
   if (!secret || !nonce || !hmacValue || !Number.isFinite(message.timestamp)) {
     return false;
   }
+  if (message.nonce && message.nonce !== nonce) return false;
   if (Math.abs(now - message.timestamp) > MAX_CLOCK_SKEW_MS) return false;
   try {
     const expected = signSoulMeshRequest(message, secret, nonce);
