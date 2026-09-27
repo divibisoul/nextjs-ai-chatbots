@@ -16,6 +16,9 @@ export interface SoulMeshMessage<T = unknown> {
   capability?: string;
   payload: T;
   timestamp: number;
+  /** Optional transport-authentication fields used by service-to-service Mesh calls. */
+  nonce?: string;
+  hmac?: string;
   meta?: { runtime?: string; transport?: string; encoding?: string; version?: string; nonce?: string; traceId?: string };
 }
 export interface SoulMeshTransport { send(message: SoulMeshMessage): Promise<void>; onMessage(handler: (message: SoulMeshMessage) => void | Promise<void>): () => void; }

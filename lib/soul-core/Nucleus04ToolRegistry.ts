@@ -5,6 +5,7 @@ import { createDocument } from '@/lib/ai/tools/create-document';
 import { updateDocument } from '@/lib/ai/tools/update-document';
 import { getWeather } from '@/lib/ai/tools/get-weather';
 import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
+import { describeGeminiSkill, listGeminiSkills } from '@/lib/soul-mesh/GeminiSkillsCatalog';
 
 export interface Nucleus04ToolContext {
   session: Session;
@@ -21,6 +22,8 @@ export function createNucleus04Tools(context: Nucleus04ToolContext) {
     updateDocument: updateDocument(context),
     getWeather,
     requestSuggestions: requestSuggestions(context),
+    listGeminiSkills: { execute: async () => listGeminiSkills() },
+    describeGeminiSkill: { execute: async ({ name }: { name: string }) => describeGeminiSkill(name) },
   };
 }
 
@@ -29,6 +32,8 @@ export const NUCLEUS_04_TOOL_IDS = [
   'updateDocument',
   'getWeather',
   'requestSuggestions',
+  'listGeminiSkills',
+  'describeGeminiSkill',
 ] as const;
 
 export type Nucleus04ToolId = (typeof NUCLEUS_04_TOOL_IDS)[number];

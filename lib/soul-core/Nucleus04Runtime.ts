@@ -21,6 +21,9 @@ export function createNucleus04Runtime(context: Nucleus04ToolContext) {
   });
 
   processor.registerHandler('artifact-processing', async (input, runtimeContext) => processor.execute({ capability: 'tool-execution', input }, runtimeContext ?? (context as Nucleus04Context)));
+  processor.registerHandler('tool.run', async (input, runtimeContext) => processor.execute({ capability: 'tool-execution', input }, runtimeContext ?? (context as Nucleus04Context)));
+  processor.registerHandler('document.create', async (input, runtimeContext) => processor.execute({ capability: 'tool-execution', input: { tool: 'createDocument', arguments: input } }, runtimeContext ?? (context as Nucleus04Context)));
+  processor.registerHandler('document.edit', async (input, runtimeContext) => processor.execute({ capability: 'tool-execution', input: { tool: 'updateDocument', arguments: input } }, runtimeContext ?? (context as Nucleus04Context)));
   processor.registerHandler('document-processing', async (input, runtimeContext) => processor.execute({ capability: 'tool-execution', input }, runtimeContext ?? (context as Nucleus04Context)));
   processor.registerHandler('context-orchestration', async (input) => ({ nucleus: 'N04', protocol: 'soul-mesh/1', context: input, timestamp: Date.now() }));
   processor.registerHandler('mesh-communication', async (input) => {

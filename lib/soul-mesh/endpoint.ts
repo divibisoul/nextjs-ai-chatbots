@@ -3,6 +3,7 @@ import { isSoulMeshMessage } from './SoulMeshProtocol';
 import type { Nucleus04ToolContext } from '@/lib/soul-core/Nucleus04ToolRegistry';
 import type { Nucleus04Context } from '@/lib/soul-core/Nucleus04Processor';
 import { supportsNucleus04Capability } from '@/lib/soul-core/Nucleus04Capabilities';
+import { signSoulMeshResponse } from './SoulMeshHmac';
 
 export const NUCLEUS_ID = 'N04' as const;
 export const SOUL_MESH_CONTRACT_VERSION = '1.1.0' as const;
@@ -15,13 +16,18 @@ export type SoulMeshHandler = (payload: unknown) => Promise<unknown> | unknown;
 export type N04MeshRuntimeContext = Nucleus04ToolContext;
 
 function payloadSize(value: unknown): number {
-  try { return new TextEncoder().encode(JSON.stringify(value)).byteLength; }
-  catch { return Number.POSITIVE_INFINITY; }
+  try {
+    return new TextEncoder().encode(JSON.stringify(value)).byteLength;
+  } catch {
+    return Number.POSITIVE_INFINITY;
+  }
 }
 
 function acceptOnce(id: string): boolean {
   const now = Date.now();
-  for (const [key, timestamp] of seenRequests) if (now - timestamp > REPLAY_WINDOW_MS) seenRequests.delete(key);
+  for (const [key, timestamp] of seenRequests) {
+    if (now - timestamp > REPLAY_WINDOW_MS) seenRequests.delete(key);
+  }
   if (seenRequests.has(id)) return false;
   seenRequests.set(id, now);
   return true;
@@ -29,16 +35,24 @@ function acceptOnce(id: string): boolean {
 
 export function validateMeshMessage(m: unknown): asserts m is SoulMeshMessage {
   if (!isSoulMeshMessage(m)) throw new Error('INVALID_MESH_MESSAGE');
-  if (!NUCLEI.has(m.source) || !NUCLEI.has(m.target) || m.source === m.target) throw new Error('INVALID_NUCLEUS_ROUTE');
+  if (!NUCLEI.has(m.source) || !NUCLEI.has(m.target) || m.source === m.target) {
+    throw new Error('INVALID_NUCLEUS_ROUTE');
+  }
   if (m.target !== NUCLEUS_ID) throw new Error('WRONG_TARGET');
   if (m.kind === 'request' && !m.capability?.trim()) throw new Error('MISSING_CAPABILITY');
   if (payloadSize(m.payload) > MAX_PAYLOAD_BYTES) throw new Error('MESH_PAYLOAD_TOO_LARGE');
-  if (!Number.isFinite(m.timestamp) || Math.abs(Date.now() - m.timestamp) > MAX_CLOCK_SKEW_MS) throw new Error('MESH_TIMESTAMP_OUT_OF_WINDOW');
+  if (!Number.isFinite(m.timestamp) || Math.abs(Date.now() - m.timestamp) > MAX_CLOCK_SKEW_MS) {
+    throw new Error('MESH_TIMESTAMP_OUT_OF_WINDOW');
+  }
   if (m.kind === 'request' && !acceptOnce(m.id)) throw new Error('MESH_REPLAY_DETECTED');
 }
 
-function result(message: SoulMeshMessage, payload: unknown, kind: SoulMeshMessage['kind'] = 'response'): SoulMeshMessage {
-  return {
+function result(
+  message: SoulMeshMessage,
+  payload: unknown,
+  kind: SoulMeshMessage['kind'] = 'response',
+): SoulMeshMessage {
+  const base: SoulMeshMessage = {
     protocol: 'soul-mesh/1',
     contractVersion: SOUL_MESH_CONTRACT_VERSION,
     id: crypto.randomUUID(),
@@ -49,7 +63,24 @@ function result(message: SoulMeshMessage, payload: unknown, kind: SoulMeshMessag
     capability: message.capability,
     payload,
     timestamp: Date.now(),
-    meta: { runtime: 'nextjs-ai-chatbots', transport: 'HTTP', encoding: 'json', version: SOUL_MESH_CONTRACT_VERSION, traceId: message.meta?.traceId ?? message.correlationId },
+    meta: {
+      runtime: 'nextjs-ai-chatbots',
+      transport: 'HTTP',
+      encoding: 'json',
+      version: SOUL_MESH_CONTRACT_VERSION,
+      traceId: message.meta?.traceId ?? message.correlationId,
+    },
+  };
+
+  const secret = process.env.SOUL_MESH_HMAC_SECRET?.trim();
+  if (!secret) return base;
+
+  const signed = signSoulMeshResponse(message, payload, kind === 'error' ? 'error' : 'response', secret);
+  return {
+    ...signed.message,
+    nonce: signed.nonce,
+    hmac: signed.hmac,
+    meta: { ...signed.message.meta, nonce: signed.nonce },
   };
 }
 
@@ -64,6 +95,7 @@ export function createN04MeshHandler(context?: N04MeshRuntimeContext) {
     const capability = message.capability;
     if (!capability) throw new Error('MISSING_CAPABILITY');
     const handler = handlers[capability];
+
     try {
       if (handler) return result(message, await handler(message.payload));
       if (context) {
@@ -73,21 +105,42 @@ export function createN04MeshHandler(context?: N04MeshRuntimeContext) {
           message,
           await processor.execute(
             {
-              capability: supportsNucleus04Capability(capability) ? capability : (() => { throw new Error('UNSUPPORTED_N04_CAPABILITY'); })(),
+              capability: supportsNucleus04Capability(capability)
+                ? capability
+                : (() => {
+                    throw new Error('UNSUPPORTED_N04_CAPABILITY');
+                  })(),
               input: message.payload,
             },
             {
               ...(context as Nucleus04Context),
-              metadata: { mesh: true, source: message.source, correlationId: message.correlationId },
+              metadata: {
+                mesh: true,
+                source: message.source,
+                correlationId: message.correlationId,
+              },
             },
           ),
         );
       }
-      return result(message, { code: 'CAPABILITY_HANDLER_NOT_REGISTERED', nucleus: NUCLEUS_ID, capability }, 'error');
+      return result(
+        message,
+        {
+          code: 'CAPABILITY_HANDLER_NOT_REGISTERED',
+          nucleus: NUCLEUS_ID,
+          capability,
+        },
+        'error',
+      );
     } catch (error) {
       return result(
         message,
-        { code: 'CAPABILITY_EXECUTION_ERROR', nucleus: NUCLEUS_ID, capability, detail: error instanceof Error ? error.message : 'Unknown error' },
+        {
+          code: 'CAPABILITY_EXECUTION_ERROR',
+          nucleus: NUCLEUS_ID,
+          capability,
+          detail: error instanceof Error ? error.message : 'Unknown error',
+        },
         'error',
       );
     }
