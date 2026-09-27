@@ -4,7 +4,10 @@ import type { UIMessageStreamWriter } from 'ai';
 import type { ChatMessage } from '@/lib/types';
 import type { SoulMeshMessage } from '@/lib/soul-mesh/SoulMeshProtocol';
 import { createN04MeshHandler } from '@/lib/soul-mesh/endpoint';
-import { verifySoulMeshRequest } from '@/lib/soul-mesh/SoulMeshHmac';
+import {
+  signSoulMeshResponse,
+  verifySoulMeshRequest,
+} from '@/lib/soul-mesh/SoulMeshHmac';
 
 type MeshAuthorization = 'hmac' | 'bearer' | 'unauthorized' | 'misconfigured';
 
@@ -36,7 +39,37 @@ function createMeshDataStream(): UIMessageStreamWriter<ChatMessage> {
   return { write: () => undefined } as unknown as UIMessageStreamWriter<ChatMessage>;
 }
 
-function discoveryResponse(message: SoulMeshMessage) {
+function meshResponse(
+  message: SoulMeshMessage,
+  payload: unknown,
+  kind: 'response' | 'error' = 'response',
+): SoulMeshMessage {
+  const base: SoulMeshMessage = {
+    protocol: 'soul-mesh/1',
+    contractVersion: '1.1.0',
+    id: crypto.randomUUID(),
+    correlationId: message.correlationId,
+    source: 'N04',
+    target: message.source,
+    kind,
+    capability: message.capability,
+    payload,
+    timestamp: Date.now(),
+  };
+
+  const secret = process.env.SOUL_MESH_HMAC_SECRET?.trim();
+  if (!secret) return base;
+
+  const signed = signSoulMeshResponse(message, payload, kind, secret);
+  return {
+    ...signed.message,
+    nonce: signed.nonce,
+    hmac: signed.hmac,
+    meta: { ...signed.message.meta, nonce: signed.nonce },
+  };
+}
+
+function discoveryPayload(message: SoulMeshMessage) {
   const capabilities = [
     'ai-pilot',
     'tool-execution',
@@ -45,39 +78,22 @@ function discoveryResponse(message: SoulMeshMessage) {
     'context-orchestration',
     'streaming',
     'mesh-communication',
-    'batch.process',
+    'tool.run',
     'document.create',
     'document.edit',
-    'artifact.analyze',
-    'tool.run',
-    'workflow.execute',
-    'schedule.task',
-    'parallel.map',
   ];
 
   return {
+    nucleus: 'N04',
     protocol: 'soul-mesh/1',
     contractVersion: '1.1.0',
-    id: crypto.randomUUID(),
-    correlationId: message.correlationId,
-    source: 'N04',
-    target: message.source,
-    kind: 'response',
-    capability: message.capability,
-    payload: {
-      nucleus: 'N04',
-      protocol: 'soul-mesh/1',
-      contractVersion: '1.1.0',
-      status: 'online',
-      declaredCapabilities: capabilities,
-      executableCapabilities: capabilities.filter(
-        capability => !['artifact.analyze', 'workflow.execute', 'schedule.task', 'parallel.map', 'batch.process'].includes(capability),
-      ),
-      peers: ['N01', 'N02', 'N03', 'N05', 'N06', 'N07'],
-      transports: ['http'],
-    },
-    timestamp: Date.now(),
-  } satisfies SoulMeshMessage;
+    status: 'online',
+    declaredCapabilities: capabilities,
+    executableCapabilities: capabilities,
+    peers: ['N01', 'N02', 'N03', 'N05', 'N06', 'N07'],
+    transports: ['http'],
+    source: message.source,
+  };
 }
 
 export async function POST(request: Request) {
@@ -90,7 +106,10 @@ export async function POST(request: Request) {
 
   const authorization = authorizationState(request, message);
   if (authorization === 'misconfigured') {
-    return NextResponse.json({ error: 'SOUL_MESH_AUTH_NOT_CONFIGURED' }, { status: 503 });
+    return NextResponse.json(
+      { error: 'SOUL_MESH_AUTH_NOT_CONFIGURED' },
+      { status: 503 },
+    );
   }
   if (authorization === 'unauthorized') {
     return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
@@ -98,18 +117,27 @@ export async function POST(request: Request) {
 
   try {
     const capability = message.capability?.trim() ?? '';
-    if (message.kind === 'request' && ['mesh.ping', 'mesh.health'].includes(capability)) {
+
+    if (
+      message.kind === 'request' &&
+      (capability === 'mesh.ping' || capability === 'mesh.health')
+    ) {
       return NextResponse.json(
-        {
-          ...discoveryResponse(message),
-          payload: { ok: true, nucleus: 'N04', handler: capability, processedAt: Date.now() },
-        },
+        meshResponse(message, {
+          ok: true,
+          nucleus: 'N04',
+          handler: capability,
+          processedAt: Date.now(),
+        }),
         { status: 200 },
       );
     }
 
     if (message.kind === 'request' && capability === 'mesh.describe') {
-      return NextResponse.json(discoveryResponse(message), { status: 200 });
+      return NextResponse.json(
+        meshResponse(message, discoveryPayload(message)),
+        { status: 200 },
+      );
     }
 
     const session = await auth();
