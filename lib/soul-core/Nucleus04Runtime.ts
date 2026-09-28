@@ -1,7 +1,7 @@
 import { generateText, type UIMessageStreamWriter } from 'ai';
 import type { Session } from 'next-auth';
 import { myProvider } from '@/lib/ai/providers';
-import { nucleus04Processor, Nucleus04Processor, type Nucleus04Context } from './Nucleus04Processor';
+import { nucleus04Processor, Nucleus04Processor, type Nucleus04Capability, type Nucleus04Context } from './Nucleus04Processor';
 import { createNucleus04Tools, type Nucleus04ToolContext, type Nucleus04ToolId } from './Nucleus04ToolRegistry';
 import { sendTo } from '@/lib/soul-mesh/peer-client';
 import type { ChatMessage } from '@/lib/types';
