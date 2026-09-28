@@ -4,6 +4,7 @@ import type { Nucleus04ToolContext } from '@/lib/soul-core/Nucleus04ToolRegistry
 import type { Nucleus04Context } from '@/lib/soul-core/Nucleus04Processor';
 import { supportsNucleus04Capability } from '@/lib/soul-core/Nucleus04Capabilities';
 import { signSoulMeshResponse } from './SoulMeshHmac';
+import { executeOctaCoreN04 } from '@/lib/octacore/OctaCoreN04Kernel';
 
 export const NUCLEUS_ID = 'N04' as const;
 export const SOUL_MESH_CONTRACT_VERSION = '1.1.0' as const;
@@ -101,6 +102,31 @@ export function createN04MeshHandler(context?: N04MeshRuntimeContext) {
       if (context) {
         const { createNucleus04Runtime } = await import('@/lib/soul-core/Nucleus04Runtime');
         const processor = createNucleus04Runtime(context).processor;
+        if (capability === 'octacore.execute') {
+          const value = message.payload;
+          if (!value || typeof value !== 'object' || Array.isArray(value)) {
+            throw new Error('OCTACORE_N04_PAYLOAD_MUST_BE_OBJECT');
+          }
+          const request = value as {
+            capability?: unknown;
+            payload?: unknown;
+            job_id?: unknown;
+          };
+          const capabilityName = typeof request.capability === 'string' ? request.capability : '';
+          return result(
+            message,
+            await executeOctaCoreN04(
+              {
+                capability: capabilityName,
+                payload: request.payload,
+                job_id: typeof request.job_id === 'string' ? request.job_id : undefined,
+                correlation_id: message.correlationId,
+              },
+              context as Nucleus04Context,
+              processor,
+            ),
+          );
+        }
         return result(
           message,
           await processor.execute(
