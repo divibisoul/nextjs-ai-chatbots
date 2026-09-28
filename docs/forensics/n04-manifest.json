@@ -1,0 +1,14 @@
+{
+  "repository":"divibisoul/nextjs-ai-chatbots",
+  "nucleus":"N04",
+  "targets":[
+    {"id":"ai-pilot","terms":["ai-pilot","chatModels","provider"],"paths":["app","lib","components"]},
+    {"id":"documents","terms":["document-processing","document.create","document.edit"],"paths":["app","lib","components"]},
+    {"id":"tools","terms":["tool-execution","ToolRegistry","tool.run"],"paths":["app","lib","components"]},
+    {"id":"artifacts","terms":["artifact-processing","create-artifact","artifact"],"paths":["app","lib","components","artifacts"]},
+    {"id":"context","terms":["context-orchestration","Nucleus04Context","context"],"paths":["app","lib"]},
+    {"id":"streaming","terms":["streaming","UIMessageStreamWriter","stream"],"paths":["app","lib","components"]},
+    {"id":"mesh-router","terms":["SoulMesh","capability","router"],"paths":["app","lib","scripts"]},
+    {"id":"providers","terms":["provider","model","myProvider"],"paths":["app","lib"]}
+  ]
+}
