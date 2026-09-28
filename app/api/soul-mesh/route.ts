@@ -41,9 +41,12 @@ function meshServiceSession(message: SoulMeshMessage) {
   if (message.source !== 'N07') return null;
   const raw = message.payload;
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
-  const userId = typeof (raw as Record<string, unknown>).userId === 'string'
-    ? (raw as Record<string, unknown>).userId.trim()
-    : '';
+  const record = raw as Record<string, unknown>;
+  const nested = record.payload && typeof record.payload === 'object' && !Array.isArray(record.payload)
+    ? record.payload as Record<string, unknown>
+    : null;
+  const candidate = record.userId ?? nested?.userId;
+  const userId = typeof candidate === 'string' ? candidate.trim() : '';
   if (!userId) return null;
   return {
     user: { id: userId, name: null, email: null, image: null },
