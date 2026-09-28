@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { N04WorkerPool } from './N04WorkerPool';
+import { N04WorkerPool } from './N04WorkerPool.ts';
 
 test('N04 worker pool runs tasks concurrently up to configured bound', async () => {
   const pool = new N04WorkerPool(3);
