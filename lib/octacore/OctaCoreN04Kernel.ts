@@ -1,4 +1,4 @@
-import { Nucleus04Processor, type Nucleus04Context } from '@/lib/soul-core/Nucleus04Processor';
+import { type Nucleus04Context, Nucleus04Processor } from '@/lib/soul-core/Nucleus04Processor';
 import { supportsNucleus04Capability } from '@/lib/soul-core/Nucleus04Capabilities';
 
 export type OctaCoreN04Request = {
