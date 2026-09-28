@@ -1,0 +1,32 @@
+name: N04 initial forensic audit
+on:
+  push:
+    branches:
+      - "feat/neural-canonical-parameters-2026-09-28"
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/forensic-audit-n04.cjs"
+      - "docs/forensics/n04-manifest.json"
+      - ".github/workflows/n04-forensic-audit.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+  pull-requests: read
+jobs:
+  forensic:
+    runs-on: ubuntu-22.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      FORENSIC_MANIFEST: docs/forensics/n04-manifest.json
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - run: node scripts/forensic-audit-n04.cjs
+      - run: test -s artifacts/forensic-audit-report.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: n04-forensic-audit-report
+          path: artifacts/forensic-audit-report.json
