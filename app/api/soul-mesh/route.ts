@@ -81,6 +81,7 @@ function discoveryPayload(message: SoulMeshMessage) {
     'tool.run',
     'document.create',
     'document.edit',
+    'octacore.execute',
   ];
 
   return {
@@ -89,7 +90,12 @@ function discoveryPayload(message: SoulMeshMessage) {
     contractVersion: '1.1.0',
     status: 'online',
     declaredCapabilities: capabilities,
-    executableCapabilities: capabilities,
+    executableCapabilities: capabilities.filter((capability) => capability !== 'octacore.execute'),
+    processorBoundary: {
+      capability: 'octacore.execute',
+      execution: 'N04 canonical processor',
+      status: 'IMPLEMENTED',
+    },
     peers: ['N01', 'N02', 'N03', 'N05', 'N06', 'N07'],
     transports: ['http'],
     source: message.source,
