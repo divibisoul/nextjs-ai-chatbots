@@ -11,14 +11,14 @@ This file is an engineering ledger, not a replacement for existing implementatio
 | context-orchestration | Nucleus04MeshRuntime | context envelope | CONNECTED; orchestration semantics can expand |
 | streaming | Nucleus04MeshRuntime | existing chat streaming transport | DELEGATED; Mesh route must not fabricate a stream |
 | mesh-communication | Nucleus04MeshRuntime | peer-client | CONNECTED |
-| batch.process | Nucleus04MeshRuntime | handler-level batch composition documented in prior work | STRUCTURAL; runtime proof required |
+| batch.process | Nucleus04Runtime + N04WorkerPool | bounded concurrent execution over registered N04 handlers | CONNECTED; unit-tested |
 | document.create | Nucleus04MeshRuntime | createDocument | CONNECTED |
 | document.edit | Nucleus04MeshRuntime | updateDocument | CONNECTED |
 | artifact.analyze | Nucleus04MeshRuntime | no standalone analyzer located | PENDING; no fake success |
 | tool.run | Nucleus04MeshRuntime | Nucleus04ToolRegistry | CONNECTED |
 | workflow.execute | Nucleus04MeshRuntime | workflow/batch dispatch path | STRUCTURAL; runtime proof required |
 | schedule.task | Nucleus04MeshRuntime | in-process timer concept | STRUCTURAL; ephemeral scheduler requires runtime proof |
-| parallel.map | Nucleus04MeshRuntime | composition path documented | STRUCTURAL; runtime proof required |
+| parallel.map | Nucleus04Runtime + N04WorkerPool | bounded concurrent map over registered N04 handlers | CONNECTED; unit-tested |
 
 ## Engineering rule
 
@@ -33,3 +33,8 @@ The eventual SOUL Super GPU remains a logical distributed parallel-processing fa
 ## Non-destructive policy
 
 Existing application tools and Mesh modules remain intact. This ledger records the verified integration boundary and intentionally leaves unsupported execution paths explicit rather than masking them.
+
+
+## Forensic update 2026-09-28
+
+The previously documented worker-pool gap is now implemented additively as `N04WorkerPool`. `batch.process` and `parallel.map` execute through the existing `Nucleus04Processor`; they do not create a second tool/runtime registry. The pool is bounded (1–64), preserves result order, records active/completed/failed state, and fails on invalid/unregistered inner capability.
