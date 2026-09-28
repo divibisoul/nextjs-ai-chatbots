@@ -21,7 +21,8 @@ export async function executeOctaCoreN04(
   if (!supportsNucleus04Capability(capability)) {
     throw new Error(`OCTACORE_N04_CAPABILITY_NOT_DECLARED:${capability}`);
   }
-  if (!processor.supports(capability)) {
+  const executable = processor.registeredCapabilities();
+  if (!executable.includes(capability)) {
     throw new Error(`OCTACORE_N04_CAPABILITY_NOT_EXECUTABLE:${capability}`);
   }
 
