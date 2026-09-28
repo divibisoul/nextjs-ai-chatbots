@@ -5,6 +5,7 @@ import { nucleus04Processor, Nucleus04Processor, type Nucleus04Context } from '.
 import { createNucleus04Tools, type Nucleus04ToolContext, type Nucleus04ToolId } from './Nucleus04ToolRegistry';
 import { sendTo } from '@/lib/soul-mesh/peer-client';
 import type { ChatMessage } from '@/lib/types';
+import { N04WorkerPool } from './N04WorkerPool';
 
 type ExecutableTool = { execute?: (input: unknown, options?: unknown) => unknown | Promise<unknown> };
 
@@ -31,6 +32,89 @@ export function createNucleus04Runtime(context: Nucleus04ToolContext) {
     if (!request.target || !request.capability) throw new Error('MESH_REQUEST_INVALID');
     return sendTo(request.target, request.capability, request.payload);
   });
+  const workerPool = new N04WorkerPool(8);
+
+  processor.registerHandler('batch.process', async (input, runtimeContext) => {
+    const request = input as {
+      capability?: Nucleus04Capability;
+      items?: unknown[];
+      maxConcurrency?: number;
+    };
+    if (!request.capability?.trim()) throw new Error('N04_BATCH_CAPABILITY_REQUIRED');
+    if (!Array.isArray(request.items) || request.items.length === 0) {
+      throw new Error('N04_BATCH_ITEMS_REQUIRED');
+    }
+    if (request.items.length > 1024) throw new Error('N04_BATCH_TOO_LARGE');
+    const executable = new Set(processor.registeredCapabilities());
+    if (!executable.has(request.capability)) {
+      throw new Error(`N04_BATCH_CAPABILITY_NOT_EXECUTABLE:${request.capability}`);
+    }
+
+    const pool = request.maxConcurrency && request.maxConcurrency !== 8
+      ? new N04WorkerPool(request.maxConcurrency)
+      : workerPool;
+
+    const tasks = request.items.map((item, index) => ({
+      id: `n04-batch-${index}`,
+      input: item,
+      priority: 0,
+    }));
+
+    const results = await pool.execute(tasks, (item) =>
+      processor.execute(
+        { capability: request.capability!, input: item },
+        runtimeContext ?? (context as Nucleus04Context),
+      ),
+    );
+
+    return {
+      nucleus: 'N04',
+      capability: request.capability,
+      count: results.length,
+      results,
+      parallel: true,
+      workerPool: pool.stats(),
+    };
+  });
+
+  processor.registerHandler('parallel.map', async (input, runtimeContext) => {
+    const request = input as {
+      capability?: Nucleus04Capability;
+      items?: unknown[];
+      maxConcurrency?: number;
+    };
+    if (!request.capability?.trim()) throw new Error('N04_PARALLEL_CAPABILITY_REQUIRED');
+    if (!Array.isArray(request.items) || request.items.length === 0) {
+      throw new Error('N04_PARALLEL_ITEMS_REQUIRED');
+    }
+    const executable = new Set(processor.registeredCapabilities());
+    if (!executable.has(request.capability)) {
+      throw new Error(`N04_PARALLEL_CAPABILITY_NOT_EXECUTABLE:${request.capability}`);
+    }
+    const pool = request.maxConcurrency && request.maxConcurrency !== 8
+      ? new N04WorkerPool(request.maxConcurrency)
+      : workerPool;
+    const tasks = request.items.map((item, index) => ({
+      id: `n04-map-${index}`,
+      input: item,
+      priority: 0,
+    }));
+    const results = await pool.execute(tasks, (item) =>
+      processor.execute(
+        { capability: request.capability!, input: item },
+        runtimeContext ?? (context as Nucleus04Context),
+      ),
+    );
+    return {
+      nucleus: 'N04',
+      capability: request.capability,
+      count: results.length,
+      results,
+      parallel: true,
+      workerPool: pool.stats(),
+    };
+  });
+
   processor.registerHandler('streaming', async () => ({ ok: true, mode: 'native-chat-transport', nucleus: 'N04', message: 'Use the native chat streaming transport for streamed UI output; Mesh remains synchronous for request/response.' }));
 
   processor.registerPilot({
