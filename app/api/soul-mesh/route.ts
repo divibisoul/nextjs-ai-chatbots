@@ -120,7 +120,9 @@ export async function POST(request: Request) {
 
     if (
       message.kind === 'request' &&
-      (capability === 'mesh.ping' || capability === 'mesh.health')
+      (capability === 'mesh.ping' ||
+        capability === 'mesh.health' ||
+        capability === 'core.health')
     ) {
       return NextResponse.json(
         meshResponse(message, {
@@ -128,6 +130,8 @@ export async function POST(request: Request) {
           nucleus: 'N04',
           handler: capability,
           processedAt: Date.now(),
+          runtime: 'nextjs-ai-chatbots',
+          contractVersion: '1.1.0',
         }),
         { status: 200 },
       );
