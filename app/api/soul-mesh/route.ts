@@ -78,6 +78,7 @@ function discoveryPayload(message: SoulMeshMessage) {
     'context-orchestration',
     'streaming',
     'mesh-communication',
+    'core.health',
     'tool.run',
     'document.create',
     'document.edit',
