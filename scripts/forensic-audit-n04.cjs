@@ -1,6 +1,6 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import {execFileSync} from 'node:child_process';
+const fs = require('node:fs');
+const path = require('node:path');
+const {execFileSync} = require('node:child_process');
 const manifest=JSON.parse(fs.readFileSync(process.env.FORENSIC_MANIFEST||'docs/forensics/n04-manifest.json','utf8'));
 const root=process.cwd(),skip=new Set(['.git','node_modules','.next','dist','build','coverage']),files=[];
 function walk(dir){for(const e of fs.readdirSync(dir,{withFileTypes:true})){if(skip.has(e.name))continue;const f=path.join(dir,e.name);e.isDirectory()?walk(f):files.push(path.relative(root,f));}}walk(root);
