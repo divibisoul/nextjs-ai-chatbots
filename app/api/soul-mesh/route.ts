@@ -35,6 +35,22 @@ function authorizationState(
     : 'unauthorized';
 }
 
+
+
+function meshServiceSession(message: SoulMeshMessage) {
+  if (message.source !== 'N07') return null;
+  const raw = message.payload;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const userId = typeof (raw as Record<string, unknown>).userId === 'string'
+    ? (raw as Record<string, unknown>).userId.trim()
+    : '';
+  if (!userId) return null;
+  return {
+    user: { id: userId, name: null, email: null, image: null },
+    expires: new Date(Date.now() + 5 * 60_000).toISOString(),
+  };
+}
+
 function createMeshDataStream(): UIMessageStreamWriter<ChatMessage> {
   return { write: () => undefined } as unknown as UIMessageStreamWriter<ChatMessage>;
 }
@@ -147,7 +163,8 @@ export async function POST(request: Request) {
     }
 
     const session = await auth();
-    if (!session) {
+    const effectiveSession = session ?? meshServiceSession(message);
+    if (!effectiveSession) {
       return NextResponse.json(
         { error: 'UNAUTHENTICATED_SESSION', capability },
         { status: 401 },
@@ -155,7 +172,7 @@ export async function POST(request: Request) {
     }
 
     const handleMeshMessage = createN04MeshHandler({
-      session,
+      session: effectiveSession,
       dataStream: createMeshDataStream(),
     });
     const result = await handleMeshMessage(message);
