@@ -15,7 +15,7 @@ test('Nucleus 04 exposes the complete declared capability surface', () => {
 
 test('Nucleus 04 reports capability registration gaps instead of hiding them', () => {
   const processor = new Nucleus04Processor();
-  assert.equal(processor.missingCapabilities().length, 15);
+  assert.equal(processor.missingCapabilities().length, NUCLEUS_04_CAPABILITIES.length);
   processor.registerHandler('tool-execution', async (input) => ({ ok: true, input }));
   assert.equal(processor.missingCapabilities().includes('tool-execution'), false);
 });
