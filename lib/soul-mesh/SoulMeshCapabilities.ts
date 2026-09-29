@@ -4,6 +4,7 @@ export const SOUL_MESH_CAPABILITIES:SoulMeshCapability[]=[
 {id:'ai-pilot',version:'1.1',description:'Provider-neutral AI inference boundary backed by the configured N04 pilot.',request:true,response:true,events:false,remote:true,owner:'N04'},
 {id:'conversation',version:'1.1',description:'Conversational inference through the provider-neutral pilot boundary.',request:true,response:true,events:false,remote:true,owner:'N04',fallback:'N02'},
 {id:'tool-execution',version:'1.1',description:'Execute a registered N04 tool through the controlled tool boundary.',request:true,response:true,events:true,remote:true,owner:'N04',fallback:'N06'},
+{id:'tool.execute',version:'1.1',description:'Compatibility alias for the canonical N04 tool-execution boundary.',request:true,response:true,events:true,remote:true,owner:'N04',fallback:'N06'},
 {id:'artifact-processing',version:'1.1',description:'Create or process application artifacts using existing N04 handlers.',request:true,response:true,events:true,remote:true,owner:'N04',fallback:'N06'},
 {id:'document-processing',version:'1.1',description:'Read or update persisted documents using existing N04 handlers.',request:true,response:true,events:true,remote:true,owner:'N04',fallback:'N06'},
 {id:'context-orchestration',version:'1.1',description:'Exchange structured context between heterogeneous nuclei.',request:true,response:true,events:true,remote:true,owner:'N04'},
