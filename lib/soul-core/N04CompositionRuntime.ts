@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { Nucleus04Capability, Nucleus04Processor } from './Nucleus04Processor';
 
+type N04RuntimeHandler = (input: unknown) => Promise<unknown>;
 type ExecuteCapability = (
   capability: Nucleus04Capability,
   input: unknown,
@@ -88,7 +89,7 @@ async function boundedMap<T, R>(
   return results;
 }
 
-function analyzeArtifact(input: unknown): Record<string, unknown> {
+async function analyzeArtifact(input: unknown): Promise<Record<string, unknown>> {
   if (!input || typeof input !== 'object') {
     throw new TypeError('N04_ARTIFACT_ANALYZE_INPUT_REQUIRED');
   }
@@ -323,17 +324,17 @@ function buildCompositionHandlers(processor: Nucleus04Processor) {
   };
 
   return {
-    'artifact.analyze': analyzeArtifact,
-    'parallel.map': parallelMap,
-    'batch.process': batchProcess,
-    'workflow.execute': workflowExecute,
-    'schedule.task': scheduleTask,
-  } satisfies Partial<Record<Nucleus04Capability, ExecuteCapability>>;
+    'artifact.analyze': analyzeArtifact as N04RuntimeHandler,
+    'parallel.map': parallelMap as N04RuntimeHandler,
+    'batch.process': batchProcess as N04RuntimeHandler,
+    'workflow.execute': workflowExecute as N04RuntimeHandler,
+    'schedule.task': scheduleTask as N04RuntimeHandler,
+  } as Partial<Record<Nucleus04Capability, N04RuntimeHandler>>;
 }
 
 export function registerN04CompositionHandlers(processor: Nucleus04Processor): void {
   const handlers = buildCompositionHandlers(processor);
-  for (const [capability, handler] of Object.entries(handlers) as Array<[Nucleus04Capability, ExecuteCapability]>) {
+  for (const [capability, handler] of Object.entries(handlers) as Array<[Nucleus04Capability, N04RuntimeHandler]>) {
     processor.registerHandler(capability, handler);
   }
 }
