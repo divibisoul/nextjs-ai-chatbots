@@ -292,21 +292,34 @@ function buildCompositionHandlers(processor: Nucleus04Processor) {
     const taskId = crypto.randomUUID();
     const scheduledAt = new Date(Date.now() + input.delayMs).toISOString();
 
-    const promise = new Promise<void>(resolve => {
-      setTimeout(() => {
-        void execute(input.capability, input.input).finally(resolve);
-      }, input.delayMs);
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, input.delayMs);
     });
 
-    return {
-      mode: 'process-local-ephemeral',
-      taskId,
-      capability: input.capability,
-      delayMs: input.delayMs,
-      scheduledAt,
-      completion: promise.then(() => ({ taskId, status: 'completed' })),
-      durability: 'none',
-    };
+    try {
+      const output = await execute(input.capability, input.input);
+      return {
+        mode: 'process-local-delayed-execution',
+        taskId,
+        capability: input.capability,
+        delayMs: input.delayMs,
+        scheduledAt,
+        status: 'completed',
+        output,
+        durability: 'none',
+      };
+    } catch (error) {
+      return {
+        mode: 'process-local-delayed-execution',
+        taskId,
+        capability: input.capability,
+        delayMs: input.delayMs,
+        scheduledAt,
+        status: 'failed',
+        error: error instanceof Error ? error.message : String(error),
+        durability: 'none',
+      };
+    }
   };
 
   return {
