@@ -25,11 +25,12 @@ test('N04 artifact.analyze returns deterministic artifact evidence', async () =>
     },
   });
 
-  assert.equal(result.analyzed, true);
-  assert.equal(result.bytes, Buffer.byteLength('# hello\nworld'));
-  assert.equal(result.lines, 2);
-  assert.equal(result.words, 3);
-  assert.match(String(result.sha256), /^[0-9a-f]{64}$/);
+  const evidence = result as Record<string, unknown>;
+  assert.equal(evidence.analyzed, true);
+  assert.equal(evidence.bytes, Buffer.byteLength('# hello\nworld'));
+  assert.equal(evidence.lines, 2);
+  assert.equal(evidence.words, 3);
+  assert.match(String(evidence.sha256), /^[0-9a-f]{64}$/);
 });
 
 test('N04 parallel.map preserves input order and enforces bounded composition', async () => {
@@ -43,10 +44,11 @@ test('N04 parallel.map preserves input order and enforces bounded composition', 
     },
   });
 
-  assert.equal(result.mode, 'bounded-parallel');
-  assert.equal(result.results.length, 3);
-  assert.deepEqual(result.results.map((item: any) => item.index), [0, 1, 2]);
-  assert.equal(result.results.every((item: any) => item.ok), true);
+  const report = result as { mode: string; results: Array<{ index: number; ok: boolean }> };
+  assert.equal(report.mode, 'bounded-parallel');
+  assert.equal(report.results.length, 3);
+  assert.deepEqual(report.results.map(item => item.index), [0, 1, 2]);
+  assert.equal(report.results.every(item => item.ok), true);
 });
 
 test('N04 batch.process executes heterogeneous native capabilities', async () => {
@@ -62,9 +64,10 @@ test('N04 batch.process executes heterogeneous native capabilities', async () =>
     },
   });
 
-  assert.equal(result.mode, 'bounded-batch');
-  assert.equal(result.results.length, 2);
-  assert.equal(result.results.every((item: any) => item.ok), true);
+  const report = result as { mode: string; results: Array<{ ok: boolean }> };
+  assert.equal(report.mode, 'bounded-batch');
+  assert.equal(report.results.length, 2);
+  assert.equal(report.results.every(item => item.ok), true);
 });
 
 test('N04 workflow.execute resolves dependencies and rejects cycles', async () => {
@@ -79,11 +82,17 @@ test('N04 workflow.execute resolves dependencies and rejects cycles', async () =
     },
   });
 
-  assert.equal(result.stopped, false);
-  assert.deepEqual(result.blocked, []);
-  assert.deepEqual(result.failed, []);
-  assert.ok(result.completed.first);
-  assert.ok(result.completed.second);
+  const report = result as {
+    stopped: boolean;
+    blocked: string[];
+    failed: string[];
+    completed: Record<string, unknown>;
+  };
+  assert.equal(report.stopped, false);
+  assert.deepEqual(report.blocked, []);
+  assert.deepEqual(report.failed, []);
+  assert.ok(report.completed.first);
+  assert.ok(report.completed.second);
 
   await assert.rejects(
     processor.execute({
@@ -127,8 +136,13 @@ test('N04 schedule.task performs real delayed execution and reports ephemeral du
     },
   });
 
-  assert.equal(result.status, 'completed');
-  assert.equal(result.durability, 'none');
+  const report = result as {
+    status: string;
+    durability: string;
+    output: { executed: boolean };
+  };
+  assert.equal(report.status, 'completed');
+  assert.equal(report.durability, 'none');
   assert.ok(Date.now() - before >= 5);
-  assert.equal(result.output.executed, true);
+  assert.equal(report.output.executed, true);
 });
