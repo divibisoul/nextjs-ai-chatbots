@@ -5,18 +5,26 @@ import { Nucleus04Processor } from './Nucleus04Processor';
 
 test('Nucleus 04 exposes the complete declared capability surface', () => {
   const processor = new Nucleus04Processor();
-  assert.equal(NUCLEUS_04_CAPABILITIES.length, 15);
+  assert.equal(NUCLEUS_04_CAPABILITIES.length, 16);
   for (const capability of NUCLEUS_04_CAPABILITIES) {
     assert.equal(processor.supports(capability), true);
   }
+  assert.equal(processor.supports('tool.execute'), true);
   assert.equal(processor.supports('not-a-capability'), false);
 });
 
 test('Nucleus 04 reports capability registration gaps instead of hiding them', () => {
   const processor = new Nucleus04Processor();
-  assert.equal(processor.missingCapabilities().length, 15);
+  assert.equal(processor.missingCapabilities().length, NUCLEUS_04_CAPABILITIES.length);
   processor.registerHandler('tool-execution', async (input) => ({ ok: true, input }));
   assert.equal(processor.missingCapabilities().includes('tool-execution'), false);
+});
+
+test('Nucleus 04 executes the compatibility alias through the same tool boundary', async () => {
+  const processor = new Nucleus04Processor();
+  processor.registerHandler('tool.execute', async (input) => ({ ok: true, input }));
+  const result = await processor.execute({ capability: 'tool.execute', input: { tool: 'getWeather' }, requestId: 'tool-alias-test' });
+  assert.deepEqual(result, { ok: true, input: { tool: 'getWeather' } });
 });
 
 test('Nucleus 04 executes a registered capability handler', async () => {

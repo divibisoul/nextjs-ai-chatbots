@@ -11,6 +11,7 @@ export type Nucleus04Capability =
   | 'document.edit'
   | 'artifact.analyze'
   | 'tool.run'
+  | 'tool.execute'
   | 'workflow.execute'
   | 'schedule.task'
   | 'parallel.map';
@@ -28,6 +29,7 @@ export const NUCLEUS_04_CAPABILITIES: readonly Nucleus04Capability[] = [
   'document.edit',
   'artifact.analyze',
   'tool.run',
+  'tool.execute',
   'workflow.execute',
   'schedule.task',
   'parallel.map',

@@ -92,6 +92,7 @@ export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOpt
     async 'ai-pilot'(payload:unknown){ return agents.executeLocal('ai-pilot', payload); },
     async conversation(payload:unknown){ return this['ai-pilot'](payload); },
     async 'tool-execution'(payload:unknown){ return agents.executeLocal('tool-execution', payload); },
+    async 'tool.execute'(payload:unknown){ return agents.executeLocal('tool-execution', payload); },
     async 'artifact-processing'(payload:unknown){ requireSession(session); return agents.executeLocal('artifact-processing', payload); },
     async 'document-processing'(payload:unknown){ requireSession(session); return agents.executeLocal('document-processing', payload); },
     async 'context-orchestration'(payload:unknown){ return agents.executeLocal('context-orchestration', payload); },
