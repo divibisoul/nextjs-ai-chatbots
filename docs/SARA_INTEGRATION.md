@@ -24,3 +24,7 @@ Além do ciclo já usado pelo chat, o cliente server-side do N04 agora expõe, d
 SARA ausente com integração habilitada => 503.
 SARA configurado mas indisponível/inválido => 502.
 Nenhuma resposta regenerada é inventada.
+
+### Clareira frontier
+Este núcleo pode consultar, de forma somente leitura, a operação SARA `sara.clareira.audit` (`GET /v1/clareira/audit`). O resultado é evidência derivada do fluxo ERU → MMD → RGO → Tríade → Clareira; não concede autoridade para mutar outro núcleo.
+
