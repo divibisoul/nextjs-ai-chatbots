@@ -1,9 +1,9 @@
-import { promises as fs } from 'node:fs';
+import { existsSync, promises as fs } from 'node:fs';
 import path from 'node:path';
 
 export function geminiSkillsConfigured(): boolean {
   const configured = String(process.env.GEMINI_SKILLS_ROOT ?? '').trim();
-  return Boolean(configured);
+  return Boolean(configured && existsSync(configured));
 }
 
 export type GeminiSkill = {
