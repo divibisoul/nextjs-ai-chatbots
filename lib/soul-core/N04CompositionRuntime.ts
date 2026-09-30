@@ -238,7 +238,11 @@ function buildCompositionHandlers(processor: Nucleus04Processor) {
         }
       }
 
-      const readySteps = ready.map(id => stepMap.get(id)!);
+      const readySteps = ready.map(id => {
+        const step = stepMap.get(id);
+        if (!step) throw new Error(`N04_WORKFLOW_STEP_MISSING:${id}`);
+        return step;
+      });
       const concurrency = normalizeConcurrency(input.concurrency);
       const round = await boundedMap(readySteps, concurrency, async step => {
         const dependencies = Object.fromEntries(
