@@ -1,4 +1,4 @@
-import { promises as fs } from 'node:fs';
+import { existsSync, promises as fs } from 'node:fs';
 import path from 'node:path';
 
 export type GeminiSkill = {
@@ -52,4 +52,9 @@ export async function describeGeminiSkill(name: string): Promise<GeminiSkill & {
   if (!selected) throw new Error(`GEMINI_SKILL_NOT_FOUND:${requested}`);
   const instructions = await fs.readFile(selected.path, 'utf8');
   return { ...selected, instructions };
+}
+
+export function geminiSkillsConfigured(): boolean {
+  const configured = String(process.env.GEMINI_SKILLS_ROOT ?? '').trim();
+  return Boolean(configured && existsSync(configured));
 }

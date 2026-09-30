@@ -1,3 +1,4 @@
+import { geminiSkillsConfigured } from '@/lib/soul-mesh/GeminiSkillsCatalog';
 import { NextResponse } from 'next/server';
 import { auth } from '@/app/(auth)/auth';
 import type { UIMessageStreamWriter } from 'ai';
@@ -71,6 +72,8 @@ function meshResponse(
 
 function discoveryPayload(message: SoulMeshMessage) {
   const capabilities = [
+    'gemini.skills.list',
+    'gemini.skills.describe',
     'ai-pilot',
     'tool-execution',
     'artifact-processing',
@@ -90,7 +93,10 @@ function discoveryPayload(message: SoulMeshMessage) {
     contractVersion: '1.1.0',
     status: 'online',
     declaredCapabilities: capabilities,
-    executableCapabilities: capabilities,
+    executableCapabilities: [
+      ...capabilities.filter((capability) => capability !== 'gemini.skills.list' && capability !== 'gemini.skills.describe'),
+      ...(geminiSkillsConfigured() ? ['gemini.skills.list', 'gemini.skills.describe'] : []),
+    ],
     peers: ['N01', 'N02', 'N03', 'N05', 'N06', 'N07'],
     transports: ['http'],
     source: message.source,

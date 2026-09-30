@@ -11,14 +11,14 @@ This file is an engineering ledger, not a replacement for existing implementatio
 | context-orchestration | Nucleus04MeshRuntime | context envelope | CONNECTED; orchestration semantics can expand |
 | streaming | Nucleus04MeshRuntime | existing chat streaming transport | DELEGATED; Mesh route must not fabricate a stream |
 | mesh-communication | Nucleus04MeshRuntime | peer-client | CONNECTED |
-| batch.process | Nucleus04MeshRuntime | handler-level batch composition documented in prior work | STRUCTURAL; runtime proof required |
+| batch.process | N04CompositionRuntime | bounded concurrent execution over registered N04 capabilities | IMPLEMENTED; CI verification pending |
 | document.create | Nucleus04MeshRuntime | createDocument | CONNECTED |
 | document.edit | Nucleus04MeshRuntime | updateDocument | CONNECTED |
-| artifact.analyze | Nucleus04MeshRuntime | no standalone analyzer located | PENDING; no fake success |
+| artifact.analyze | N04CompositionRuntime | deterministic metadata/hash analysis of supplied artifact payload | IMPLEMENTED; scope limited to supplied payload evidence |
 | tool.run | Nucleus04MeshRuntime | Nucleus04ToolRegistry | CONNECTED |
-| workflow.execute | Nucleus04MeshRuntime | workflow/batch dispatch path | STRUCTURAL; runtime proof required |
-| schedule.task | Nucleus04MeshRuntime | in-process timer concept | STRUCTURAL; ephemeral scheduler requires runtime proof |
-| parallel.map | Nucleus04MeshRuntime | composition path documented | STRUCTURAL; runtime proof required |
+| workflow.execute | N04CompositionRuntime | dependency-aware bounded workflow executor | IMPLEMENTED; CI verification pending |
+| schedule.task | N04CompositionRuntime | delayed execution with explicit process-local durability boundary | IMPLEMENTED; non-durable by design |
+| parallel.map | N04CompositionRuntime | bounded concurrent map over registered N04 capabilities | IMPLEMENTED; CI verification pending |
 
 ## Engineering rule
 
@@ -26,9 +26,9 @@ The Mesh must not advertise a capability as fully implemented merely because a r
 
 ## Parallelism reality
 
-The current HEAD contains parallel/composition contracts but **does not contain the previously claimed `N04WorkerPool` file**. Therefore CPU worker-pool execution is not currently proven by a dedicated worker-pool implementation in this repository. This is an active Super GPU implementation gap, not a completed feature.
+The current HEAD contains an explicit bounded-concurrency composition runtime. It is not a separate `N04WorkerPool`; the bounded workers live in `N04CompositionRuntime` and execute registered N04 capability handlers. This is an active Super GPU implementation gap, not a completed feature.
 
-The eventual SOUL Super GPU remains a logical distributed parallel-processing fabric. A future worker pool or equivalent executor must be connected to the real N04 runtime and tested before it is advertised as executable capability.
+This runtime provides CPU/in-process bounded concurrency only. It must not be advertised as SuperGPU hardware execution; distributed GPU execution remains owned by the existing N07 SuperGPU control plane and requires its own runtime evidence.
 
 ## Non-destructive policy
 
