@@ -9,7 +9,7 @@ import type { ChatMessage } from '@/lib/types';
 import { chatModels } from '@/lib/ai/models';
 import { SOUL_MESH_CAPABILITIES } from '@/lib/soul-mesh/SoulMeshCapabilities';
 import { SOUL_MESH_CONTRACT_VERSION } from '@/lib/soul-mesh/SoulMeshProtocol';
-import { sendTo, N04_IN_CHANNELS, N04_OUT_CHANNELS } from '@/lib/soul-mesh/peer-client';
+import { sendTo, sendToWithCorrelation, N04_IN_CHANNELS, N04_OUT_CHANNELS } from '@/lib/soul-mesh/peer-client';
 import { SoulMeshAgentRegistry } from '@/lib/soul-mesh/SoulMeshAgentRegistry';
 import type { SoulMeshMessage } from '@/lib/soul-mesh/SoulMeshProtocol';
 
@@ -75,7 +75,7 @@ export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOpt
         const requiredCapability = typeof input.required_capability === 'string' ? input.required_capability : '';
         if (!target) throw new Error('COOPERATION_TARGET_REQUIRED');
         if (target === 'N04') throw new Error('INVALID_MESH_PEER');
-        return sendTo('N07', 'cooperation.handshake', { target, required_capability: requiredCapability });
+        return sendToWithCorrelation('N07', 'cooperation.handshake', { target, required_capability: requiredCapability }, m.correlationId);
       }
       if (m.capability === 'cooperation.exchange') {
         const target = String(input.target);
@@ -83,11 +83,11 @@ export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOpt
         if (!target) throw new Error('COOPERATION_TARGET_REQUIRED');
         if (target === 'N04') throw new Error('INVALID_MESH_PEER');
         if (typeof capability !== 'string' || !capability) throw new Error('COOPERATION_CAPABILITY_REQUIRED');
-        return sendTo('N07', 'cooperation.exchange', {
+        return sendToWithCorrelation('N07', 'cooperation.exchange', {
           target,
           capability,
           payload: input.payload ?? {},
-        });
+        }, m.correlationId);
       }
       const target = String(input.target); const capability = input.capability;
       if (!PEERS.includes(target as (typeof PEERS)[number])) throw new Error('INVALID_MESH_PEER');
