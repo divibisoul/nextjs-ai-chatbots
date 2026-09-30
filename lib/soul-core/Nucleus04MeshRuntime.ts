@@ -66,10 +66,29 @@ export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOpt
     },
   });
   agents.register({
-    id: 'N04-orchestration-agent', name: 'N04 Mesh Orchestration Agent', capabilities: ['context-orchestration', 'mesh-communication'],
+    id: 'N04-orchestration-agent', name: 'N04 Mesh Orchestration Agent', capabilities: ['context-orchestration', 'mesh-communication', 'cooperation.handshake', 'cooperation.exchange'],
     execute: async (m: SoulMeshMessage | { kind:'local'; nucleus:'N04'; capability:string; payload:unknown; correlationId:string }) => {
       if (m.capability === 'context-orchestration') return { nucleus: 'N04', protocol: 'soul-mesh/1', receivedAt: Date.now(), context: m.payload };
-      const input = assertObject(m.payload, 'MESH_COMMUNICATION_PAYLOAD');
+      const input = assertObject(m.payload, m.capability.startsWith('cooperation.') ? 'COOPERATION_PAYLOAD' : 'MESH_COMMUNICATION_PAYLOAD');
+      if (m.capability === 'cooperation.handshake') {
+        const target = String(input.target);
+        const requiredCapability = typeof input.required_capability === 'string' ? input.required_capability : '';
+        if (!target) throw new Error('COOPERATION_TARGET_REQUIRED');
+        if (target === 'N04') throw new Error('INVALID_MESH_PEER');
+        return sendTo('N07', 'cooperation.handshake', { target, required_capability: requiredCapability });
+      }
+      if (m.capability === 'cooperation.exchange') {
+        const target = String(input.target);
+        const capability = input.capability;
+        if (!target) throw new Error('COOPERATION_TARGET_REQUIRED');
+        if (target === 'N04') throw new Error('INVALID_MESH_PEER');
+        if (typeof capability !== 'string' || !capability) throw new Error('COOPERATION_CAPABILITY_REQUIRED');
+        return sendTo('N07', 'cooperation.exchange', {
+          target,
+          capability,
+          payload: input.payload ?? {},
+        });
+      }
       const target = String(input.target); const capability = input.capability;
       if (!PEERS.includes(target as (typeof PEERS)[number])) throw new Error('INVALID_MESH_PEER');
       if (typeof capability !== 'string' || !capability) throw new Error('MESH_CAPABILITY_REQUIRED');
@@ -111,14 +130,13 @@ export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOpt
   };
 
   agents.register({
-    id: 'N04-mesh-agent', name: 'N04 Mesh Agent', capabilities: ['mesh.handshake', 'mesh.ping', 'mesh.describe', 'core.health'],
+    id: 'N04-mesh-agent',
+    name: 'N04 Mesh Agent',
+    capabilities: ['mesh.handshake', 'mesh.ping', 'mesh.describe', 'core.health'],
     execute: executeMeshControl,
-      switch (m.capability) {
-        case 'mesh.handshake': return { nucleus:'N04', protocol:'soul-mesh/1', contractVersion:SOUL_MESH_CONTRACT_VERSION, capabilities:SOUL_MESH_CAPABILITIES, transports:['http'], timestamp:Date.now() };
-        case 'mesh.ping': return { ok:true, nucleus:'N04', echoed:m.payload, processedAt:Date.now() };
-        case 'mesh.describe': {
-          const executableCapabilities = [...new Set(agents.describe().flatMap(agent => agent.capabilities))];
-          return {
+  });
+
+  return {
             nucleus:'N04',
             protocol:'soul-mesh/1',
             contractVersion:SOUL_MESH_CONTRACT_VERSION,
