@@ -82,6 +82,12 @@ function discoveryPayload(message: SoulMeshMessage) {
     'tool.run',
     'document.create',
     'document.edit',
+    'gemini.skills.list',
+    'gemini.skills.describe',
+  ];
+  const executableCapabilities = [
+    ...capabilities.filter((capability) => capability !== 'gemini.skills.list' && capability !== 'gemini.skills.describe'),
+    ...(geminiSkillsConfigured() ? ['gemini.skills.list', 'gemini.skills.describe'] : []),
   ];
 
   return {
@@ -90,7 +96,7 @@ function discoveryPayload(message: SoulMeshMessage) {
     contractVersion: '1.1.0',
     status: 'online',
     declaredCapabilities: capabilities,
-    executableCapabilities: capabilities,
+    executableCapabilities: executableCapabilities,
     peers: ['N01', 'N02', 'N03', 'N05', 'N06', 'N07'],
     transports: ['http'],
     source: message.source,
