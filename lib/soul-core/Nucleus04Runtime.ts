@@ -35,6 +35,13 @@ export function createNucleus04Runtime(context: Nucleus04ToolContext) {
   });
   processor.registerHandler('streaming', async () => ({ ok: true, mode: 'native-chat-transport', nucleus: 'N04', message: 'Use the native chat streaming transport for streamed UI output; Mesh remains synchronous for request/response.' }));
 
+  processor.registerHandler('gemini.skills.list', async () => tools.listGeminiSkills.execute());
+  processor.registerHandler('gemini.skills.describe', async (input) => {
+    const request = input as { name?: string };
+    if (!request.name?.trim()) throw new Error('GEMINI_SKILL_NAME_REQUIRED');
+    return tools.describeGeminiSkill.execute({ name: request.name });
+  });
+
   processor.registerPilot({
     id: 'n04-provider-adapter',
     execute: async (input) => {
