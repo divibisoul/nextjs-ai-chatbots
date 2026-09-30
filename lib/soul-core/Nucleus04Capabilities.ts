@@ -14,7 +14,9 @@ export type Nucleus04Capability =
   | 'tool.execute'
   | 'workflow.execute'
   | 'schedule.task'
-  | 'parallel.map';
+  | 'parallel.map'
+  | 'gemini.skills.list'
+  | 'gemini.skills.describe';
 
 export const NUCLEUS_04_CAPABILITIES: readonly Nucleus04Capability[] = [
   'ai-pilot',
