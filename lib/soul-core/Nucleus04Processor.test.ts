@@ -5,7 +5,7 @@ import { Nucleus04Processor } from './Nucleus04Processor';
 
 test('Nucleus 04 exposes the complete declared capability surface', () => {
   const processor = new Nucleus04Processor();
-  assert.equal(NUCLEUS_04_CAPABILITIES.length, 16);
+  assert.equal(NUCLEUS_04_CAPABILITIES.length, 18);
   for (const capability of NUCLEUS_04_CAPABILITIES) {
     assert.equal(processor.supports(capability), true);
   }
@@ -56,4 +56,10 @@ test('Nucleus 04 rejects an unsupported capability', async () => {
     processor.execute({ capability: 'not-a-capability' as never, input: null }),
     /Unsupported Nucleus 04 capability/,
   );
+});
+
+
+test('Nucleus 04 exposes the recovered Gemini Skills capabilities', () => {
+  assert.equal(processor.supports('gemini.skills.list'), true);
+  assert.equal(processor.supports('gemini.skills.describe'), true);
 });
