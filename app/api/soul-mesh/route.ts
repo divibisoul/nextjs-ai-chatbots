@@ -8,6 +8,7 @@ import {
   signSoulMeshResponse,
   verifySoulMeshRequest,
 } from '@/lib/soul-mesh/SoulMeshHmac';
+import { geminiSkillsConfigured } from '@/lib/soul-mesh/GeminiSkillsCatalog';
 
 type MeshAuthorization = 'hmac' | 'bearer' | 'unauthorized' | 'misconfigured';
 
