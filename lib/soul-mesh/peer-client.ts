@@ -98,12 +98,14 @@ async function attempt(
   }
 }
 
-export async function sendTo(
+async function sendToInternal(
   target: N04Peer,
   capability: string,
   payload: unknown,
-  timeoutMs = 15000,
-  maxAttempts = 2,
+  timeoutMs: number,
+  maxAttempts: number,
+  correlationId: string,
+  traceId: string,
 ): Promise<SoulMeshMessage> {
   const url = urls[target];
   if (!url) {
@@ -119,7 +121,8 @@ export async function sendTo(
     throw new Error('SOUL_MESH_INVALID_ATTEMPTS');
   }
 
-  const correlationId = randomUUID();
+  correlationId = correlationId.trim() || randomUUID();
+  traceId = traceId.trim() || correlationId;
   const secret = process.env.SOUL_MESH_HMAC_SECRET?.trim();
   const nonce = secret ? createSoulMeshNonce() : '';
   const message: SoulMeshMessage = {
@@ -139,7 +142,7 @@ export async function sendTo(
       transport: 'HTTP',
       encoding: 'json',
       version: '1.1.0',
-      traceId: correlationId,
+      traceId,
       ...(nonce ? { nonce } : {}),
     },
   };
@@ -189,6 +192,36 @@ export async function sendTo(
   throw lastError instanceof Error
     ? lastError
     : new Error(`SOUL_MESH_REQUEST_FAILED:${target}`);
+}
+
+export async function sendTo(
+  target: N04Peer,
+  capability: string,
+  payload: unknown,
+  timeoutMs = 15000,
+  maxAttempts = 2,
+): Promise<SoulMeshMessage> {
+  return sendToInternal(target, capability, payload, timeoutMs, maxAttempts, '', '');
+}
+
+export async function sendToWithCorrelation(
+  target: N04Peer,
+  capability: string,
+  payload: unknown,
+  correlationId: string,
+  traceId = correlationId,
+  timeoutMs = 15000,
+  maxAttempts = 2,
+): Promise<SoulMeshMessage> {
+  return sendToInternal(
+    target,
+    capability,
+    payload,
+    timeoutMs,
+    maxAttempts,
+    correlationId,
+    traceId,
+  );
 }
 
 export const N04_OUT_CHANNELS = PEERS.map((peer) => `N04.OUT.${peer}`);
