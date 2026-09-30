@@ -238,7 +238,9 @@ function buildCompositionHandlers(processor: Nucleus04Processor) {
         }
       }
 
-      const readySteps = ready.map(id => stepMap.get(id)).filter((step): step is N04WorkflowStep => step !== undefined);
+      const readySteps = ready
+        .map((id: string) => stepMap.get(id))
+        .filter((step): step is WorkflowStep => step !== undefined);
       const concurrency = normalizeConcurrency(input.concurrency);
       const round = await boundedMap(readySteps, concurrency, async step => {
         const dependencies = Object.fromEntries(
