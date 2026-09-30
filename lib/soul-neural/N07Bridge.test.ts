@@ -52,3 +52,46 @@ test('N04 neural bridge propagates the exact operation and correlation', async (
     assert.deepEqual(result.payload, [1,2]);
   } finally { globalThis.fetch = oldFetch; }
 });
+
+
+test('N04 neural bridge consumes canonical N07 neural parameters and preserves feedback metadata', async () => {
+  const oldFetch = globalThis.fetch;
+  let feedbackSeen = false;
+  globalThis.fetch = async (_input, init) => {
+    const body = JSON.parse(String(init?.body));
+    if (body.capability === 'learning.feedback') {
+      feedbackSeen = true;
+      assert.deepEqual(body.payload.payload, {
+        values:[0.75,0.9], target:'N07', capability:'neural.forward',
+        outcome:'success', provenance:'mesh-observed'
+      });
+    }
+    const response = {
+      protocol:'soul-mesh/1', contractVersion:'1.1.0', id:'n07-parameters', correlationId:body.correlationId,
+      source:'N07', target:'N04', kind:'response', capability:body.capability,
+      payload:{}, metadata:{parameters:JSON.stringify({
+        size:8, learning_rate:0.05, optimizer:'adam', regularization:0.000001,
+        gradient_clip:1, heads:1, batch_cache:128, layers:[{activation:'tanh',dropout_rate:0}]
+      })}, timestamp:Date.now()
+    };
+    const nonce='response-parameters';
+    const unsigned=JSON.stringify({
+      version:'1.0', contractVersion:'1.1.0', messageId:response.id, source:'N07', target:'N04',
+      timestamp:response.timestamp, nonce, correlationId:response.correlationId, type:'TASK_RESULT',
+      payload:{capability:response.capability,payload:response.payload}
+    });
+    const signature=hex(unsigned);
+    return new Response(JSON.stringify({...response,nonce,hmac:signature}),{
+      status:200,headers:{'content-type':'application/json','x-soul-mesh-nonce':nonce,'x-soul-mesh-hmac':signature}
+    });
+  };
+  try {
+    const bridge = new N07NeuralBridge('N04',{baseUrl:'https://n07.test',secret});
+    const actual = await bridge.parameters('corr-parameters-test');
+    assert.equal(actual.size,8);
+    assert.equal(actual.optimizer,'adam');
+    assert.equal(actual.layers[0].activation,'tanh');
+    await bridge.feedback(0.75,0.9,'N07','neural.forward','success','mesh-observed','corr-feedback-test');
+    assert.equal(feedbackSeen,true);
+  } finally { globalThis.fetch = oldFetch; }
+});
