@@ -48,6 +48,8 @@ export function createNucleus04Runtime(context: Nucleus04ToolContext) {
     return execute({ name: request.name });
   });
 
+  registerN04CompositionHandlers(processor);
+
   processor.registerPilot({
     id: 'n04-provider-adapter',
     execute: async (input) => {
