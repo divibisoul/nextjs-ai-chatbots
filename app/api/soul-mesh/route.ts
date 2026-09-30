@@ -85,6 +85,11 @@ function discoveryPayload(message: SoulMeshMessage) {
     'tool.run',
     'document.create',
     'document.edit',
+    'artifact.analyze',
+    'batch.process',
+    'parallel.map',
+    'workflow.execute',
+    'schedule.task',
   ];
 
   return {
