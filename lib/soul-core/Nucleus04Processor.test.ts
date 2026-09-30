@@ -60,6 +60,7 @@ test('Nucleus 04 rejects an unsupported capability', async () => {
 
 
 test('Nucleus 04 exposes the recovered Gemini Skills capabilities', () => {
+  const processor = new Nucleus04Processor();
   assert.equal(processor.supports('gemini.skills.list'), true);
   assert.equal(processor.supports('gemini.skills.describe'), true);
 });
