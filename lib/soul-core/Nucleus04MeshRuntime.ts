@@ -11,6 +11,7 @@ import { SOUL_MESH_CAPABILITIES } from '@/lib/soul-mesh/SoulMeshCapabilities';
 import { SOUL_MESH_CONTRACT_VERSION } from '@/lib/soul-mesh/SoulMeshProtocol';
 import { sendTo, sendToWithCorrelation, N04_IN_CHANNELS, N04_OUT_CHANNELS } from '@/lib/soul-mesh/peer-client';
 import { SoulMeshAgentRegistry } from '@/lib/soul-mesh/SoulMeshAgentRegistry';
+import { delegateN04ExternalCapability } from '@/lib/soul-mesh/N04ExternalCapabilityBridge';
 import type { SoulMeshMessage } from '@/lib/soul-mesh/SoulMeshProtocol';
 
 export type Nucleus04MeshRuntimeOptions = { session?: Session | null };
@@ -95,6 +96,22 @@ export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOpt
       return sendTo(target as (typeof PEERS)[number], capability, input.payload);
     },
   });
+  agents.register({
+    id: 'N04-external-capability-agent', name: 'N04 External Capability Consumer Agent',
+    capabilities: ['external-capability-execution'],
+    execute: (m: SoulMeshMessage | { kind:'local'; nucleus:'N04'; capability:string; payload:unknown; correlationId:string }) => {
+      const input = assertObject(m.payload, 'EXTERNAL_CAPABILITY_PAYLOAD');
+      return delegateN04ExternalCapability({
+        capability: String(input.capability ?? ''),
+        payload: input.payload,
+        correlationId: m.correlationId,
+        workloads: Array.isArray(input.workloads) ? input.workloads : [],
+        candidate: input.candidate && typeof input.candidate === 'object' ? input.candidate as Record<string, unknown> : { capability: String(input.capability ?? '') },
+        strategy: typeof input.strategy === 'string' ? input.strategy : undefined,
+      });
+    },
+  });
+
   agents.register({
     id: 'N04-mesh-agent', name: 'N04 Mesh Agent', capabilities: ['mesh.handshake', 'mesh.ping', 'mesh.describe', 'core.health'],
     execute: (m: SoulMeshMessage | { kind:'local'; nucleus:'N04'; capability:string; payload:unknown; correlationId:string }) => {
