@@ -7,7 +7,14 @@ export const PEERS = ['N01', 'N02', 'N03', 'N05', 'N06', 'N07'] as const;
 export type N04Peer = (typeof PEERS)[number];
 
 function peerUrl(target: N04Peer): string | undefined {
-  return process.env[`SOUL_MESH_${target}_URL`]?.trim() || undefined;
+  const value = process.env[`SOUL_MESH_${target}_URL`]?.trim();
+  if (!value || /^(undefined|null)$/i.test(value)) return undefined;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? value.replace(/\/$/, '') : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function isRetryableStatus(status: number): boolean {
