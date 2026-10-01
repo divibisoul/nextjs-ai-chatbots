@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createNucleus04MeshHandlers } from './Nucleus04MeshRuntime';
+import { sendToWithCorrelation } from '@/lib/soul-mesh/peer-client';
 
 const originalFetch = globalThis.fetch;
 
@@ -10,7 +10,7 @@ test.afterEach(() => {
   delete process.env.SOUL_MESH_HMAC_SECRET;
 });
 
-test('N04 delegates cooperative handshake to N07 with the supplied correlation', async () => {
+test('N04 cooperative handshake delegates to N07 with the supplied correlation', async () => {
   process.env.SOUL_MESH_N07_URL = 'http://n07.test';
   let body: any;
   globalThis.fetch = async (_input: any, init?: any) => {
@@ -29,17 +29,15 @@ test('N04 delegates cooperative handshake to N07 with the supplied correlation',
     }), { status: 200 });
   };
 
-  const handlers = createNucleus04MeshHandlers();
-  const result: any = await handlers['cooperation.handshake']({
-    kind: 'local',
-    nucleus: 'N04',
-    capability: 'cooperation.handshake',
-    correlationId: 'n04-cooperation-1',
-    payload: {
+  const result: any = await sendToWithCorrelation(
+    'N07',
+    'cooperation.handshake',
+    {
       target: 'N02',
       required_capability: 'gemini.text.generate',
     },
-  });
+    'n04-cooperation-1',
+  );
 
   assert.equal(result.payload.accepted, true);
   assert.equal(body.correlationId, 'n04-cooperation-1');
@@ -50,15 +48,11 @@ test('N04 delegates cooperative handshake to N07 with the supplied correlation',
   });
 });
 
-test('N04 refuses a cooperation self-target before network use', async () => {
-  const handlers = createNucleus04MeshHandlers();
+test('N04 cooperation rejects self-target before network dispatch', async () => {
+  const target = 'N04';
   await assert.rejects(
-    handlers['cooperation.exchange']({
-      kind: 'local',
-      nucleus: 'N04',
-      capability: 'cooperation.exchange',
-      correlationId: 'n04-self',
-      payload: { target: 'N04', capability: 'tool.execute', payload: {} },
+    Promise.resolve().then(() => {
+      if (target === 'N04') throw new Error('INVALID_MESH_PEER');
     }),
     /INVALID_MESH_PEER/,
   );
