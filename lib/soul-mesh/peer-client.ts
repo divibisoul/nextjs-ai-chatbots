@@ -6,14 +6,9 @@ export const NUCLEUS_ID = 'N04' as const;
 export const PEERS = ['N01', 'N02', 'N03', 'N05', 'N06', 'N07'] as const;
 export type N04Peer = (typeof PEERS)[number];
 
-const urls: Record<N04Peer, string | undefined> = {
-  N01: process.env.SOUL_MESH_N01_URL,
-  N02: process.env.SOUL_MESH_N02_URL,
-  N03: process.env.SOUL_MESH_N03_URL,
-  N05: process.env.SOUL_MESH_N05_URL,
-  N06: process.env.SOUL_MESH_N06_URL,
-  N07: process.env.SOUL_MESH_N07_URL,
-};
+function peerUrl(target: N04Peer): string | undefined {
+  return process.env[`SOUL_MESH_${target}_URL`]?.trim() || undefined;
+}
 
 function isRetryableStatus(status: number): boolean {
   return status === 408 || status === 425 || status === 429 || status >= 500;
@@ -105,7 +100,7 @@ export async function sendTo(
   timeoutMs = 15000,
   maxAttempts = 2,
 ): Promise<SoulMeshMessage> {
-  const url = urls[target];
+  const url = peerUrl(target);
   if (!url) {
     throw new Error(`SOUL_MESH_PEER_URL_NOT_CONFIGURED:${target}`);
   }
