@@ -69,7 +69,7 @@ export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOpt
     id: 'N04-orchestration-agent', name: 'N04 Mesh Orchestration Agent', capabilities: ['context-orchestration', 'mesh-communication', 'cooperation.handshake', 'cooperation.exchange'],
     execute: async (m: SoulMeshMessage | { kind:'local'; nucleus:'N04'; capability:string; payload:unknown; correlationId:string }) => {
       if (m.capability === 'context-orchestration') return { nucleus: 'N04', protocol: 'soul-mesh/1', receivedAt: Date.now(), context: m.payload };
-      const input = assertObject(m.payload, m.capability.startsWith('cooperation.') ? 'COOPERATION_PAYLOAD' : 'MESH_COMMUNICATION_PAYLOAD');
+      const input = assertObject(m.payload, m.capability?.startsWith('cooperation.') ? 'COOPERATION_PAYLOAD' : 'MESH_COMMUNICATION_PAYLOAD');
       if (m.capability === 'cooperation.handshake') {
         const target = String(input.target ?? '');
         const requiredCapability = typeof input.required_capability === 'string' ? input.required_capability.trim() : '';
