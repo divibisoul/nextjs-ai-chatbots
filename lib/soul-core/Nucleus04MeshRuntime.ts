@@ -137,35 +137,6 @@ export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOpt
   });
 
   return {
-            nucleus:'N04',
-            protocol:'soul-mesh/1',
-            contractVersion:SOUL_MESH_CONTRACT_VERSION,
-            capabilities:SOUL_MESH_CAPABILITIES,
-            executableCapabilities,
-            agents:agents.describe(),
-            tools:Object.keys(tools),
-            models:chatModels,
-            peers:[...PEERS],
-            channels:{ inbound:N04_IN_CHANNELS, outbound:N04_OUT_CHANNELS },
-            status:'online',
-          };
-        }
-        case 'core.health':
-          return {
-            nucleus:'N04',
-            ready:true,
-            authenticatedToolContext:Boolean(session?.user?.id),
-            executableCapabilities:[...new Set(agents.describe().flatMap(agent => agent.capabilities))],
-            providerModels:[...AVAILABLE_MODELS],
-            timestamp:Date.now(),
-          };
-        default:
-          throw new Error('N04_CAPABILITY_NOT_REGISTERED');
-      }
-    },
-  });
-
-  return {
     async 'ai-pilot'(payload:unknown){ return agents.executeLocal('ai-pilot', payload); },
     async conversation(payload:unknown){ return this['ai-pilot'](payload); },
     async 'tool-execution'(payload:unknown){ return agents.executeLocal('tool-execution', payload); },
