@@ -10,6 +10,8 @@ export const SOUL_MESH_CAPABILITIES:SoulMeshCapability[]=[
 {id:'context-orchestration',version:'1.1',description:'Exchange structured context between heterogeneous nuclei.',request:true,response:true,events:true,remote:true,owner:'N04'},
 {id:'streaming',version:'1.1',description:'Streaming remains on the native chat transport and is not exposed as a remote Mesh executor.',request:true,response:true,events:true,remote:false,owner:'N04'},
 {id:'mesh-communication',version:'1.1',description:'N04 outbound request/response bridge to the other nuclei.',request:true,response:true,events:true,remote:true,owner:'N04'},
+{id:'cooperation.handshake',version:'1.0',description:'N04 cooperative negotiation delegated to canonical N07 control plane.',request:true,response:true,events:false,remote:true,owner:'N04'},
+{id:'cooperation.exchange',version:'1.0',description:'N04 structured cooperative exchange delegated to canonical N07 control plane.',request:true,response:true,events:true,remote:true,owner:'N04'},
 {id:'mesh.ping',version:'1.0',description:'Liveness and correlation probe.',request:true,response:true,events:false,remote:true},
 {id:'mesh.describe',version:'1.0',description:'Runtime capability, agent, tool, model and peer discovery.',request:true,response:true,events:false,remote:true},
 {id:'core.health',version:'1.0',description:'N04 runtime health status.',request:true,response:true,events:false,remote:true},
