@@ -25,8 +25,13 @@ test('N04 cooperation is fail-closed when N07 transport is not configured', asyn
 
 test('N04 cooperation delegates to real N07 when endpoint is configured', async (t) => {
   const endpoint = process.env.SOUL_MESH_N07_URL?.trim();
+  const secret = process.env.SOUL_MESH_HMAC_SECRET?.trim();
   if (!endpoint) {
     t.skip('BLOCKED_ENV: SOUL_MESH_N07_URL is not configured; real N07 integration is not measurable in this runner');
+    return;
+  }
+  if (secret && secret.length < 16) {
+    t.skip('BLOCKED_ENV: SOUL_MESH_HMAC_SECRET is invalid for the real N07 integration in this runner');
     return;
   }
 
