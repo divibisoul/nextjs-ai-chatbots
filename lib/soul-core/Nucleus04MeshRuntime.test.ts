@@ -8,6 +8,8 @@ test('N04 Mesh describe exposes only registered executable capabilities', async 
   assert.equal(description.nucleus, 'N04');
   assert.equal(description.status, 'online');
   assert.ok(Array.isArray(description.executableCapabilities));
+  assert.ok(description.executableCapabilities.includes('cooperation.handshake'));
+  assert.ok(description.executableCapabilities.includes('cooperation.exchange'));
   assert.ok(Array.isArray(description.tools));
   assert.ok(!description.tools.includes('createDocument'));
 });
