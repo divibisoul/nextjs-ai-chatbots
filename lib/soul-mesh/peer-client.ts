@@ -163,14 +163,14 @@ async function sendToInternal(
 
       assertResponse(message, body);
       const secretNow = process.env.SOUL_MESH_HMAC_SECRET?.trim();
-      if (secretNow) {
-        verifySoulMeshResponse(
-          message,
-          body,
-          secretNow,
-          String(body.nonce ?? ''),
-          String(body.hmac ?? ''),
-        );
+      if (secretNow && !verifySoulMeshResponse(
+        message,
+        body,
+        secretNow,
+        String(body.nonce ?? ''),
+        String(body.hmac ?? ''),
+      )) {
+        throw new Error('SOUL_MESH_RESPONSE_HMAC_INVALID');
       }
 
       if (body.kind === 'error') {
