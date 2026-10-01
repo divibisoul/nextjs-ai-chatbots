@@ -195,7 +195,7 @@ export async function sendToWithCorrelation(
   timeoutMs = 15000,
   maxAttempts = 2,
 ): Promise<SoulMeshMessage> {
-  const url = urls[target];
+  const url = peerUrl(target);
   if (!url) throw new Error(`SOUL_MESH_PEER_URL_NOT_CONFIGURED:${target}`);
   if (!capability.trim()) throw new Error('SOUL_MESH_CAPABILITY_REQUIRED');
   if (!correlationId.trim()) throw new Error('SOUL_MESH_CORRELATION_REQUIRED');
