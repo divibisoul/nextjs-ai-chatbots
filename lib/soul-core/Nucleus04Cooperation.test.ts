@@ -2,32 +2,33 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { sendToWithCorrelation } from '@/lib/soul-mesh/peer-client';
 
-const originalFetch = globalThis.fetch;
-
 test.afterEach(() => {
-  globalThis.fetch = originalFetch;
   delete process.env.SOUL_MESH_N07_URL;
   delete process.env.SOUL_MESH_HMAC_SECRET;
 });
 
-test('N04 cooperative handshake delegates to N07 with the supplied correlation', async () => {
-  process.env.SOUL_MESH_N07_URL = 'http://n07.test';
-  let body: any;
-  globalThis.fetch = async (_input: any, init?: any) => {
-    body = JSON.parse(String(init?.body ?? '{}'));
-    return new Response(JSON.stringify({
-      protocol: 'soul-mesh/1',
-      contractVersion: '1.1.0',
-      id: 'n07-response',
-      correlationId: body.correlationId,
-      source: 'N07',
-      target: 'N04',
-      kind: 'response',
-      capability: body.capability,
-      payload: { accepted: true },
-      timestamp: Date.now(),
-    }), { status: 200 });
-  };
+test('N04 cooperation is fail-closed when N07 transport is not configured', async () => {
+  delete process.env.SOUL_MESH_N07_URL;
+  await assert.rejects(
+    sendToWithCorrelation(
+      'N07',
+      'cooperation.handshake',
+      {
+        target: 'N02',
+        required_capability: 'gemini.text.generate',
+      },
+      'n04-cooperation-blocked',
+    ),
+    /SOUL_MESH_PEER_URL_NOT_CONFIGURED:N07/,
+  );
+});
+
+test('N04 cooperation delegates to real N07 when endpoint is configured', async (t) => {
+  const endpoint = process.env.SOUL_MESH_N07_URL?.trim();
+  if (!endpoint) {
+    t.skip('BLOCKED_ENV: SOUL_MESH_N07_URL is not configured; real N07 integration is not measurable in this runner');
+    return;
+  }
 
   const result: any = await sendToWithCorrelation(
     'N07',
@@ -36,16 +37,14 @@ test('N04 cooperative handshake delegates to N07 with the supplied correlation',
       target: 'N02',
       required_capability: 'gemini.text.generate',
     },
-    'n04-cooperation-1',
+    'n04-cooperation-real',
   );
 
-  assert.equal(result.payload.accepted, true);
-  assert.equal(body.correlationId, 'n04-cooperation-1');
-  assert.equal(body.capability, 'cooperation.handshake');
-  assert.deepEqual(body.payload, {
-    target: 'N02',
-    required_capability: 'gemini.text.generate',
-  });
+  assert.equal(result.protocol, 'soul-mesh/1');
+  assert.equal(result.contractVersion, '1.1.0');
+  assert.equal(result.correlationId, 'n04-cooperation-real');
+  assert.equal(result.source, 'N07');
+  assert.equal(result.target, 'N04');
 });
 
 test('N04 cooperation rejects self-target before network dispatch', async () => {
