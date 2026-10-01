@@ -6,14 +6,16 @@ export const NUCLEUS_ID = 'N04' as const;
 export const PEERS = ['N01', 'N02', 'N03', 'N05', 'N06', 'N07'] as const;
 export type N04Peer = (typeof PEERS)[number];
 
-const urls: Record<N04Peer, string | undefined> = {
-  N01: process.env.SOUL_MESH_N01_URL,
-  N02: process.env.SOUL_MESH_N02_URL,
-  N03: process.env.SOUL_MESH_N03_URL,
-  N05: process.env.SOUL_MESH_N05_URL,
-  N06: process.env.SOUL_MESH_N06_URL,
-  N07: process.env.SOUL_MESH_N07_URL,
-};
+function peerUrl(target: N04Peer): string | undefined {
+  const value = process.env[`SOUL_MESH_${target}_URL`]?.trim();
+  if (!value || /^(undefined|null)$/i.test(value)) return undefined;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? value.replace(/\/$/, '') : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 function isRetryableStatus(status: number): boolean {
   return status === 408 || status === 425 || status === 429 || status >= 500;
@@ -105,7 +107,7 @@ export async function sendTo(
   timeoutMs = 15000,
   maxAttempts = 2,
 ): Promise<SoulMeshMessage> {
-  const url = urls[target];
+  const url = peerUrl(target);
   if (!url) {
     throw new Error(`SOUL_MESH_PEER_URL_NOT_CONFIGURED:${target}`);
   }
@@ -189,6 +191,59 @@ export async function sendTo(
   throw lastError instanceof Error
     ? lastError
     : new Error(`SOUL_MESH_REQUEST_FAILED:${target}`);
+}
+
+export async function sendToWithCorrelation(
+  target: N04Peer,
+  capability: string,
+  payload: unknown,
+  correlationId: string,
+  traceId = correlationId,
+  timeoutMs = 15000,
+  maxAttempts = 2,
+): Promise<SoulMeshMessage> {
+  const url = peerUrl(target);
+  if (!url) throw new Error(`SOUL_MESH_PEER_URL_NOT_CONFIGURED:${target}`);
+  if (!capability.trim()) throw new Error('SOUL_MESH_CAPABILITY_REQUIRED');
+  if (!correlationId.trim()) throw new Error('SOUL_MESH_CORRELATION_REQUIRED');
+  const secret = process.env.SOUL_MESH_HMAC_SECRET?.trim();
+  const nonce = secret ? createSoulMeshNonce() : '';
+  const message: SoulMeshMessage = {
+    protocol: 'soul-mesh/1',
+    contractVersion: '1.1.0',
+    id: randomUUID(),
+    correlationId: correlationId.trim(),
+    source: NUCLEUS_ID,
+    target,
+    kind: 'request',
+    capability,
+    payload,
+    timestamp: Date.now(),
+    ...(nonce ? { nonce } : {}),
+    meta: {
+      runtime: 'nextjs-ai-chatbots',
+      transport: 'HTTP',
+      encoding: 'json',
+      version: '1.1.0',
+      traceId: traceId.trim() || correlationId.trim(),
+      ...(nonce ? { nonce } : {}),
+    },
+  };
+  const { response, body } = await attempt(url, message, timeoutMs);
+  if (!response.ok) throw new Error(`SOUL_MESH_REMOTE_ERROR:${target}:${response.status}`);
+  assertResponse(message, body);
+  const secretNow = process.env.SOUL_MESH_HMAC_SECRET?.trim();
+  if (secretNow) {
+    verifySoulMeshResponse(
+      message,
+      body,
+      secretNow,
+      String(body.nonce ?? ''),
+      String(body.hmac ?? ''),
+    );
+  }
+  if (body.kind === 'error') throw new Error(`SOUL_MESH_REMOTE_ERROR:${target}`);
+  return body;
 }
 
 export const N04_OUT_CHANNELS = PEERS.map((peer) => `N04.OUT.${peer}`);

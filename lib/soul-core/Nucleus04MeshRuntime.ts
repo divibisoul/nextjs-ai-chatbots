@@ -9,8 +9,9 @@ import type { ChatMessage } from '@/lib/types';
 import { chatModels } from '@/lib/ai/models';
 import { SOUL_MESH_CAPABILITIES } from '@/lib/soul-mesh/SoulMeshCapabilities';
 import { SOUL_MESH_CONTRACT_VERSION } from '@/lib/soul-mesh/SoulMeshProtocol';
-import { sendTo, N04_IN_CHANNELS, N04_OUT_CHANNELS } from '@/lib/soul-mesh/peer-client';
+import { sendTo, sendToWithCorrelation, N04_IN_CHANNELS, N04_OUT_CHANNELS } from '@/lib/soul-mesh/peer-client';
 import { SoulMeshAgentRegistry } from '@/lib/soul-mesh/SoulMeshAgentRegistry';
+import { delegateN04ExternalCapability } from '@/lib/soul-mesh/N04ExternalCapabilityBridge';
 import type { SoulMeshMessage } from '@/lib/soul-mesh/SoulMeshProtocol';
 
 export type Nucleus04MeshRuntimeOptions = { session?: Session | null };
@@ -66,16 +67,51 @@ export function createNucleus04MeshHandlers({ session }: Nucleus04MeshRuntimeOpt
     },
   });
   agents.register({
-    id: 'N04-orchestration-agent', name: 'N04 Mesh Orchestration Agent', capabilities: ['context-orchestration', 'mesh-communication'],
+    id: 'N04-orchestration-agent', name: 'N04 Mesh Orchestration Agent', capabilities: ['context-orchestration', 'mesh-communication', 'cooperation.handshake', 'cooperation.exchange'],
     execute: async (m: SoulMeshMessage | { kind:'local'; nucleus:'N04'; capability:string; payload:unknown; correlationId:string }) => {
       if (m.capability === 'context-orchestration') return { nucleus: 'N04', protocol: 'soul-mesh/1', receivedAt: Date.now(), context: m.payload };
-      const input = assertObject(m.payload, 'MESH_COMMUNICATION_PAYLOAD');
+      const input = assertObject(m.payload, m.capability?.startsWith('cooperation.') ? 'COOPERATION_PAYLOAD' : 'MESH_COMMUNICATION_PAYLOAD');
+      if (m.capability === 'cooperation.handshake') {
+        const target = String(input.target ?? '');
+        const requiredCapability = typeof input.required_capability === 'string' ? input.required_capability.trim() : '';
+        if (!target) throw new Error('COOPERATION_TARGET_REQUIRED');
+        if (target === 'N04') throw new Error('INVALID_MESH_PEER');
+        return sendToWithCorrelation('N07', 'cooperation.handshake', { target, required_capability: requiredCapability }, m.correlationId);
+      }
+      if (m.capability === 'cooperation.exchange') {
+        const target = String(input.target ?? '');
+        const peerCapability = typeof input.capability === 'string' ? input.capability.trim() : '';
+        if (!target) throw new Error('COOPERATION_TARGET_REQUIRED');
+        if (target === 'N04') throw new Error('INVALID_MESH_PEER');
+        if (!peerCapability) throw new Error('COOPERATION_CAPABILITY_REQUIRED');
+        return sendToWithCorrelation('N07', 'cooperation.exchange', {
+          target,
+          capability: peerCapability,
+          payload: input.payload ?? {},
+        }, m.correlationId);
+      }
       const target = String(input.target); const capability = input.capability;
       if (!PEERS.includes(target as (typeof PEERS)[number])) throw new Error('INVALID_MESH_PEER');
       if (typeof capability !== 'string' || !capability) throw new Error('MESH_CAPABILITY_REQUIRED');
       return sendTo(target as (typeof PEERS)[number], capability, input.payload);
     },
   });
+  agents.register({
+    id: 'N04-external-capability-agent', name: 'N04 External Capability Consumer Agent',
+    capabilities: ['external-capability-execution'],
+    execute: (m: SoulMeshMessage | { kind:'local'; nucleus:'N04'; capability:string; payload:unknown; correlationId:string }) => {
+      const input = assertObject(m.payload, 'EXTERNAL_CAPABILITY_PAYLOAD');
+      return delegateN04ExternalCapability({
+        capability: String(input.capability ?? ''),
+        payload: input.payload,
+        correlationId: m.correlationId,
+        workloads: Array.isArray(input.workloads) ? input.workloads : [],
+        candidate: input.candidate && typeof input.candidate === 'object' ? input.candidate as Record<string, unknown> : { capability: String(input.capability ?? '') },
+        strategy: typeof input.strategy === 'string' ? input.strategy : undefined,
+      });
+    },
+  });
+
   agents.register({
     id: 'N04-mesh-agent', name: 'N04 Mesh Agent', capabilities: ['mesh.handshake', 'mesh.ping', 'mesh.describe', 'core.health'],
     execute: (m: SoulMeshMessage | { kind:'local'; nucleus:'N04'; capability:string; payload:unknown; correlationId:string }) => {
