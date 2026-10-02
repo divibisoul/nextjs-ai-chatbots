@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0.0",
+  "component": {
+    "id": "N04",
+    "role": "interface conversacional e interação"
+  },
+  "reason": "functional-complementation",
+  "upstream_capability_sources": [],
+  "canonical_control_plane": "divibisoul/Orquestrador-",
+  "integration": {
+    "agent_engineering": "soul.engineer.adapter",
+    "routing": "application/API + canonical SOUL Mesh",
+    "execution": "N04 tool/artifact/document boundary",
+    "verification": "contract + API integration tests",
+    "structural_state": "REAL",
+    "runtime_state": "PROJECTED"
+  },
+  "rule": "upstream source remains independent; adapter/configuration/runtime evidence is required before EXECUTABLE"
+}
