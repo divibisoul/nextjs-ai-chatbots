@@ -146,7 +146,7 @@ export async function runBrowserUse(request: BrowserUseRequest): Promise<Record<
   }
 
   const task = request.task.trim();
-  if (!task) return { state: 'FAIL', code: 'BROWSER_USE_TASK_REQUIRED', capability: BROWSER_USE_CAPABILITY, ...evidence };
+  if (!task) return { ...evidence, state: 'FAIL', code: 'BROWSER_USE_TASK_REQUIRED', capability: BROWSER_USE_CAPABILITY };
 
   const c = config();
   const payload = JSON.stringify({
