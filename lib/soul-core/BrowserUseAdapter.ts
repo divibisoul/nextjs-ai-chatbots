@@ -95,8 +95,7 @@ export function describeBrowserUseAdapter(): BrowserUseEvidence {
     };
   }
   if (!['openai', 'google', 'browser-use', 'ollama'].includes(c.provider)) {
-    return {
-      state: 'FAIL',
+    return { ...evidence, state: 'FAIL',
       code: 'BROWSER_USE_LLM_PROVIDER_UNSUPPORTED',
       provider: 'browser-use',
       revision: BROWSER_USE_REVISION,
@@ -187,33 +186,28 @@ export async function runBrowserUse(request: BrowserUseRequest): Promise<Record<
       detail: message,
       stderr: stderr.slice(-4000),
       capability: BROWSER_USE_CAPABILITY,
-      ...evidence,
-    };
+      };
   }
 
   if (result.code !== 0) {
-    return {
-      state: 'FAIL',
+    return { ...evidence, state: 'FAIL',
       code: 'BROWSER_USE_PROCESS_FAILED',
       exitCode: result.code,
       signal: result.signal,
       stderr: stderr.slice(-4000),
       capability: BROWSER_USE_CAPABILITY,
-      ...evidence,
-    };
+      };
   }
 
   try {
     const output = JSON.parse(stdout.trim()) as Record<string, unknown>;
     return { ...output, capability: BROWSER_USE_CAPABILITY, providerRevision: BROWSER_USE_REVISION };
   } catch {
-    return {
-      state: 'FAIL',
+    return { ...evidence, state: 'FAIL',
       code: 'BROWSER_USE_INVALID_RUNNER_OUTPUT',
       stdout: stdout.slice(-4000),
       stderr: stderr.slice(-4000),
       capability: BROWSER_USE_CAPABILITY,
-      ...evidence,
-    };
+      };
   }
 }
