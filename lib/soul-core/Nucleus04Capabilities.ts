@@ -15,7 +15,6 @@ export type Nucleus04Capability =
   | 'workflow.execute'
   | 'schedule.task'
   | 'parallel.map'
-  | 'browser.automation.browser-use@1.0.0'
   | 'gemini.skills.list'
   | 'gemini.skills.describe';
 
@@ -36,7 +35,6 @@ export const NUCLEUS_04_CAPABILITIES: readonly Nucleus04Capability[] = [
   'workflow.execute',
   'schedule.task',
   'parallel.map',
-  'browser.automation.browser-use@1.0.0',
    'gemini.skills.list',
    'gemini.skills.describe',
 ] as const;
