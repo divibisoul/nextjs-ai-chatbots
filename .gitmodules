@@ -1,0 +1,3 @@
+[submodule "integrations/soul-upstream/browser-use"]
+	path = integrations/soul-upstream/browser-use
+	url = https://github.com/browser-use/browser-use.git
