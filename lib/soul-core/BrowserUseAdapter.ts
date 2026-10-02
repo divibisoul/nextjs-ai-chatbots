@@ -110,6 +110,7 @@ export function describeBrowserUseAdapter(): BrowserUseEvidence {
   }
   if (!c.credentialsPresent) {
     return {
+      ...evidence,
       state: 'DEGRADED',
       code: 'BROWSER_USE_LLM_CREDENTIALS_NOT_AVAILABLE',
       provider: 'browser-use',
@@ -181,6 +182,7 @@ export async function runBrowserUse(request: BrowserUseRequest): Promise<Record<
   if ('error' in result && result.error) {
     const message = result.error instanceof Error ? result.error.message : String(result.error);
     return {
+      ...evidence,
       state: message === 'BROWSER_USE_TIMEOUT' ? 'FAIL' : 'DEGRADED',
       code: message === 'BROWSER_USE_TIMEOUT' ? 'BROWSER_USE_TIMEOUT' : 'BROWSER_USE_PROCESS_UNAVAILABLE',
       detail: message,
