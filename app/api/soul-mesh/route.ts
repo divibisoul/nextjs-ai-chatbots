@@ -5,6 +5,7 @@ import type { UIMessageStreamWriter } from 'ai';
 import type { ChatMessage } from '@/lib/types';
 import type { SoulMeshMessage } from '@/lib/soul-mesh/SoulMeshProtocol';
 import { createN04MeshHandler } from '@/lib/soul-mesh/endpoint';
+import { N04_RESIDENT_AGENT } from '@/lib/soul-mesh/N04ResidentAgent';
 import {
   signSoulMeshResponse,
   verifySoulMeshRequest,
@@ -90,6 +91,7 @@ function discoveryPayload(message: SoulMeshMessage) {
     'parallel.map',
     'workflow.execute',
     'schedule.task',
+    'mesh.resident.describe@1.0.0',
   ];
 
   return {
@@ -105,6 +107,7 @@ function discoveryPayload(message: SoulMeshMessage) {
     peers: ['N01', 'N02', 'N03', 'N05', 'N06', 'N07'],
     transports: ['http'],
     source: message.source,
+    residentAgent: N04_RESIDENT_AGENT,
   };
 }
 
@@ -129,6 +132,10 @@ export async function POST(request: Request) {
 
   try {
     const capability = message.capability?.trim() ?? '';
+
+    if (message.kind === 'request' && capability === 'mesh.resident.describe@1.0.0') {
+      return NextResponse.json(meshResponse(message, N04_RESIDENT_AGENT), { status: 200 });
+    }
 
     if (
       message.kind === 'request' &&
