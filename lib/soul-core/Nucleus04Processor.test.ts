@@ -5,7 +5,7 @@ import { Nucleus04Processor } from './Nucleus04Processor';
 
 test('Nucleus 04 exposes the complete declared capability surface', () => {
   const processor = new Nucleus04Processor();
-  assert.equal(NUCLEUS_04_CAPABILITIES.length, 18);
+  assert.equal(NUCLEUS_04_CAPABILITIES.length, 19);
   for (const capability of NUCLEUS_04_CAPABILITIES) {
     assert.equal(processor.supports(capability), true);
   }
