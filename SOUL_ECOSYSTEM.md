@@ -17,5 +17,9 @@ This public repository is a component of the **SOUL ecosystem**. It connects to 
 
 Canonical external capability manifest: https://github.com/divibisoul/Orquestrador-/blob/main/integrations/external-capabilities.json
 
+## Functional integration boundary
+
+The binding contract for this component is recorded in `integrations/capability-boundary.json`. It states why each upstream capability is present, the canonical routing boundary, the engineering agent responsible, and the evidence gate before runtime activation.
+
 ## Runtime truth
 This identity document does not claim capabilities that are not implemented and verified at runtime.
