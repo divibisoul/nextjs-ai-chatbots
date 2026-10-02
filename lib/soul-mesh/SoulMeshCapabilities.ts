@@ -18,4 +18,5 @@ export const SOUL_MESH_CAPABILITIES:SoulMeshCapability[]=[
 {id:'environment.weather',version:'1.0',description:'Weather lookup from the existing N04 tool.',request:true,response:true,events:false,remote:true,owner:'N04'},
 {id:'gemini.skills.list',version:'1.0',description:'List locally provisioned Gemini Skills through the N04 skill catalog.',request:true,response:true,events:false,remote:true,owner:'N04'},
 {id:'gemini.skills.describe',version:'1.0',description:'Read a named locally provisioned Gemini Skill instruction asset.',request:true,response:true,events:false,remote:true,owner:'N04'},
+{id:'browser.automation.browser-use@1.0.0',version:'1.0',description:'Browser automation provider adapter routed through the native N04 tool-execution boundary.',request:true,response:true,events:false,remote:true,owner:'N04'},
 ];

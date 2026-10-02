@@ -6,6 +6,7 @@ import type { ChatMessage } from '@/lib/types';
 import type { SoulMeshMessage } from '@/lib/soul-mesh/SoulMeshProtocol';
 import { createN04MeshHandler } from '@/lib/soul-mesh/endpoint';
 import { N04_RESIDENT_AGENT } from '@/lib/soul-mesh/N04ResidentAgent';
+import { describeBrowserUseAdapter } from '@/lib/soul-core/BrowserUseAdapter';
 import {
   signSoulMeshResponse,
   verifySoulMeshRequest,
@@ -92,8 +93,10 @@ function discoveryPayload(message: SoulMeshMessage) {
     'workflow.execute',
     'schedule.task',
     'mesh.resident.describe@1.0.0',
+    'browser.automation.browser-use@1.0.0',
   ];
 
+  const browserUse = describeBrowserUseAdapter();
   return {
     nucleus: 'N04',
     protocol: 'soul-mesh/1',
@@ -101,13 +104,15 @@ function discoveryPayload(message: SoulMeshMessage) {
     status: 'online',
     declaredCapabilities: capabilities,
     executableCapabilities: [
-      ...capabilities.filter((capability) => capability !== 'gemini.skills.list' && capability !== 'gemini.skills.describe'),
+      ...capabilities.filter((capability) => capability !== 'gemini.skills.list' && capability !== 'gemini.skills.describe' && capability !== 'browser.automation.browser-use@1.0.0'),
       ...(geminiSkillsConfigured() ? ['gemini.skills.list', 'gemini.skills.describe'] : []),
+      ...(browserUse.state === 'PASS' ? ['browser.automation.browser-use@1.0.0'] : []),
     ],
     peers: ['N01', 'N02', 'N03', 'N05', 'N06', 'N07'],
     transports: ['http'],
     source: message.source,
     residentAgent: N04_RESIDENT_AGENT,
+    browserUse,
   };
 }
 
