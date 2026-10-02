@@ -95,7 +95,8 @@ export function describeBrowserUseAdapter(): BrowserUseEvidence {
     };
   }
   if (!['openai', 'google', 'browser-use', 'ollama'].includes(c.provider)) {
-    return { ...evidence, state: 'FAIL',
+    return {
+      state: 'FAIL',
       code: 'BROWSER_USE_LLM_PROVIDER_UNSUPPORTED',
       provider: 'browser-use',
       revision: BROWSER_USE_REVISION,
@@ -110,7 +111,6 @@ export function describeBrowserUseAdapter(): BrowserUseEvidence {
   }
   if (!c.credentialsPresent) {
     return {
-      ...evidence,
       state: 'DEGRADED',
       code: 'BROWSER_USE_LLM_CREDENTIALS_NOT_AVAILABLE',
       provider: 'browser-use',
