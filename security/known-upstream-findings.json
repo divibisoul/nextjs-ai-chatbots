@@ -1,0 +1,16 @@
+{
+  "policy_version": "1.0.0",
+  "repository": "divibisoul/nextjs-ai-chatbots",
+  "known_upstream_findings": [
+    {
+      "advisory": "GHSA-vfj7-8cjw-p6xm",
+      "package": "braces",
+      "severity": "high",
+      "affected": "<=3.0.3",
+      "status": "UPSTREAM_UNPATCHED",
+      "reason": "GitHub Advisory Database lists no patched braces version as of 2026-10-02; the vulnerable dependency is pulled through the existing Tailwind 3/chokidar/micromatch dependency tree.",
+      "requirement": "CI must fail if any additional HIGH advisory appears.",
+      "reviewed_at": "2026-10-03"
+    }
+  ]
+}
