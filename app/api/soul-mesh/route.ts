@@ -74,6 +74,8 @@ function meshResponse(
 
 function discoveryPayload(message: SoulMeshMessage) {
   const capabilities = [
+    'external.capability.resolve@1.0.0',
+    'external.capability.fabric.describe@1.0.0',
     'gemini.skills.list',
     'gemini.skills.describe',
     'ai-pilot',
@@ -113,6 +115,7 @@ function discoveryPayload(message: SoulMeshMessage) {
     source: message.source,
     residentAgent: N04_RESIDENT_AGENT,
     browserUse,
+    externalFabric: { component: 'N04', sourceCount: 25, resolution: 'N04ExternalCapabilityFabric' },
   };
 }
 

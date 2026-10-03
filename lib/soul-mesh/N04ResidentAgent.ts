@@ -13,7 +13,9 @@ export const N04_RESIDENT_AGENT = {
     runtimePolicyEngine: false,
   },
   skills: ['writing-plans','executing-plans','test-driven-development','verification-before-completion'],
-  publishedCapabilities: ['mesh.health','mesh.discovery','mesh.resident.describe@1.0.0','tool.run','document.create','document.edit','artifact.analyze','workflow.execute','browser.automation.browser-use@1.0.0','mesh.supergpu.execute@1.0.0','superagi.fabric.execute@1.0.0'],
+  publishedCapabilities: ['mesh.health','mesh.discovery','mesh.resident.describe@1.0.0','tool.run','document.create','document.edit','artifact.analyze','workflow.execute','browser.automation.browser-use@1.0.0','external.capability.resolve@1.0.0','external.capability.fabric.describe@1.0.0','mesh.supergpu.execute@1.0.0','superagi.fabric.execute@1.0.0'],
+  upstreamProviderCount: 25,
+  externalFabric: 'N04ExternalCapabilityFabric',
   authority: 'N04 owns tool/document/artifact execution; external tool frameworks remain adapters.',
   evidence: 'soul-evidence/1',
 } as const;
