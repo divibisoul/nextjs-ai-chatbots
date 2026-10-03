@@ -1,0 +1,4 @@
+import { test } from 'node:test';import assert from 'node:assert/strict';import {describeN04ExternalCapabilityFabric,providersByFunction,resolveN04ExternalProvider} from './N04ExternalCapabilityFabric';
+test('N04 fabric contains 25 upstream sources',()=>{const f=describeN04ExternalCapabilityFabric();assert.equal(f.providerCount,25);assert.equal(resolveN04ExternalProvider('browser-use').revision,'302d8fcb245a7a63fb7531a4734c9ce3c7792779');assert.equal(resolveN04ExternalProvider('llama-index').n04Functions.includes('document-processing'),true);});
+test('tool and web affinity is deterministic',()=>{assert.ok(providersByFunction('browser.automation.browser-use@1.0.0').some(x=>x.id==='browser-use'));assert.ok(providersByFunction('tool-execution').some(x=>x.id==='smolagents'));});
+test('unknown source fails closed',()=>{assert.throws(()=>resolveN04ExternalProvider('unknown'),/N04_EXTERNAL_PROVIDER_UNKNOWN/);});
