@@ -1,6 +1,7 @@
 import { geminiSkillsConfigured } from '@/lib/soul-mesh/GeminiSkillsCatalog';
 import { NextResponse } from 'next/server';
 import { auth } from '@/app/(auth)/auth';
+import type { Session } from 'next-auth';
 import type { UIMessageStreamWriter } from 'ai';
 import type { ChatMessage } from '@/lib/types';
 import type { SoulMeshMessage } from '@/lib/soul-mesh/SoulMeshProtocol';
@@ -118,8 +119,13 @@ function discoveryPayload(message: SoulMeshMessage) {
 
 export async function POST(request: Request) {
   let message: SoulMeshMessage;
+  let raw: string;
   try {
-    message = (await request.json()) as SoulMeshMessage;
+    raw = await request.text();
+    if (new TextEncoder().encode(raw).byteLength > 2 * 1024 * 1024) {
+      return NextResponse.json({ error: 'SOUL_MESH_PAYLOAD_TOO_LARGE' }, { status: 413 });
+    }
+    message = JSON.parse(raw) as SoulMeshMessage;
   } catch {
     return NextResponse.json({ error: 'INVALID_JSON' }, { status: 400 });
   }
@@ -168,16 +174,37 @@ export async function POST(request: Request) {
       );
     }
 
-    const session = await auth();
-    if (!session) {
+    const meshM2MSafe = capability === 'context-orchestration';
+    let session: Session | undefined;
+
+    if (!meshM2MSafe) {
+      session = await auth();
+      if (!session) {
+        return NextResponse.json(
+          { error: 'UNAUTHENTICATED_SESSION', capability },
+          { status: 401 },
+        );
+      }
+    } else if (authorization !== 'hmac') {
       return NextResponse.json(
-        { error: 'UNAUTHENTICATED_SESSION', capability },
-        { status: 401 },
+        { error: 'MESH_M2M_REQUIRES_HMAC', capability },
+        { status: 403 },
       );
     }
 
+    const machineSession = session ?? ({
+      expires: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      user: {
+        id: `mesh:${message.source}`,
+        name: 'SOUL Mesh machine principal',
+        email: null,
+        image: null,
+        type: 'guest',
+      },
+    } as Session);
+
     const handleMeshMessage = createN04MeshHandler({
-      session,
+      session: machineSession,
       dataStream: createMeshDataStream(),
     });
     const result = await handleMeshMessage(message);
