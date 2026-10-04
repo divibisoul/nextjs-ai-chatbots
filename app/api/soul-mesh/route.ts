@@ -75,7 +75,7 @@ function meshResponse(
     ...signed.message,
     nonce: signed.nonce,
     hmac: signed.hmac,
-    meta: { ...signed.message.meta, nonce: signed.nonce },
+    meta: signed.message.meta,
   };
 }
 
