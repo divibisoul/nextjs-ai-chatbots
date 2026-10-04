@@ -73,6 +73,7 @@ export function signSoulMeshResponse(
   kind: 'response' | 'error',
   secret: string,
 ): { message: SoulMeshMessage; nonce: string; hmac: string } {
+  const nonce = createSoulMeshNonce();
   const message: SoulMeshMessage = {
     protocol: request.protocol,
     contractVersion: request.contractVersion,
@@ -89,10 +90,10 @@ export function signSoulMeshResponse(
       transport: 'HTTP',
       encoding: 'json',
       version: request.contractVersion,
+      nonce,
       traceId: request.meta?.traceId ?? request.correlationId,
     },
   };
-  const nonce = createSoulMeshNonce();
   const hmac = digest(canonicalEnvelope(message, nonce), secret);
   return { message, nonce, hmac };
 }
