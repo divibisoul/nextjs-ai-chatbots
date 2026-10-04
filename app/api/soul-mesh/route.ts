@@ -15,6 +15,12 @@ import {
 
 type MeshAuthorization = 'hmac' | 'bearer' | 'unauthorized' | 'misconfigured';
 
+function authorized(request: Request): boolean {
+  const token = process.env.SOUL_MESH_TOKEN?.trim();
+  if (!token) return process.env.NODE_ENV !== 'production';
+  return request.headers.get('authorization') === `Bearer ${token}`;
+}
+
 function authorizationState(
   request: Request,
   message: SoulMeshMessage,
