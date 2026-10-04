@@ -123,6 +123,25 @@ function discoveryPayload(message: SoulMeshMessage) {
   };
 }
 
+export async function GET(request: Request) {
+  if (!authorized(request)) {
+    return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
+  }
+  const message = {
+    protocol: 'soul-mesh/1' as const,
+    contractVersion: '1.1.0' as const,
+    id: crypto.randomUUID(),
+    correlationId: request.headers.get('x-soul-correlation-id') ?? crypto.randomUUID(),
+    source: 'N05' as const,
+    target: 'N04' as const,
+    kind: 'request' as const,
+    capability: 'mesh.describe',
+    payload: {},
+    timestamp: Date.now(),
+  } satisfies SoulMeshMessage;
+  return NextResponse.json(discoveryPayload(message), { status: 200 });
+}
+
 export async function POST(request: Request) {
   let message: SoulMeshMessage;
   let raw: string;
