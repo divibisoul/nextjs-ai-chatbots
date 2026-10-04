@@ -3,7 +3,7 @@ import type { SoulMeshMessage } from './SoulMeshProtocol';
 
 const MAX_CLOCK_SKEW_MS = 30_000;
 
-function canonicalN07Request(message: SoulMeshMessage, nonce: string): string {
+function canonicalEnvelope(message: SoulMeshMessage, nonce: string): string {
   return JSON.stringify({
     protocol: message.protocol,
     contractVersion: message.contractVersion,
@@ -12,33 +12,11 @@ function canonicalN07Request(message: SoulMeshMessage, nonce: string): string {
     source: message.source,
     target: message.target,
     kind: message.kind,
-    capability: message.capability ?? '',
+    capability: message.capability ?? null,
     payload: message.payload,
     timestamp: message.timestamp,
-    transport: message.meta?.transport,
-    meta: message.meta,
+    meta: message.meta ?? null,
     nonce,
-  });
-}
-
-function canonicalLegacyResponse(
-  response: SoulMeshMessage,
-  nonce: string,
-): string {
-  return JSON.stringify({
-    version: '1.0',
-    contractVersion: response.contractVersion,
-    messageId: response.id,
-    source: response.source,
-    target: response.target,
-    timestamp: response.timestamp,
-    nonce,
-    correlationId: response.correlationId,
-    type: response.kind === 'error' ? 'ERROR' : 'TASK_RESULT',
-    payload: {
-      capability: response.capability ?? '',
-      payload: response.payload ?? {},
-    },
   });
 }
 
@@ -66,7 +44,7 @@ export function signSoulMeshRequest(
   nonce: string,
 ): string {
   if (!nonce) throw new Error('SOUL_MESH_NONCE_REQUIRED');
-  return digest(canonicalN07Request(message, nonce), secret);
+  return digest(canonicalEnvelope(message, nonce), secret);
 }
 
 export function verifySoulMeshRequest(
@@ -115,7 +93,7 @@ export function signSoulMeshResponse(
     },
   };
   const nonce = createSoulMeshNonce();
-  const hmac = digest(canonicalLegacyResponse(message, nonce), secret);
+  const hmac = digest(canonicalEnvelope(message, nonce), secret);
   return { message, nonce, hmac };
 }
 
