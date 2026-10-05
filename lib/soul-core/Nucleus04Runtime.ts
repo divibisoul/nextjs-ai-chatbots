@@ -1,4 +1,5 @@
 import { registerN04CompositionHandlers } from './N04CompositionRuntime';
+import { CollaborationSessionRunner, type CollaborationSessionRequest } from '@/lib/sara/CollaborationSessionRunner';
 import { generateText, type UIMessageStreamWriter } from 'ai';
 import type { Session } from 'next-auth';
 import { myProvider } from '@/lib/ai/providers';
@@ -55,6 +56,10 @@ export function createNucleus04Runtime(context: Nucleus04ToolContext) {
   });
 
   registerN04CompositionHandlers(processor);
+
+  processor.registerHandler('collaboration.session', async (input) => {
+    return new CollaborationSessionRunner().run(input as CollaborationSessionRequest);
+  });
 
   processor.registerPilot({
     id: 'n04-provider-adapter',
