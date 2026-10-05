@@ -4,7 +4,7 @@ import fs from 'node:fs';
 const path = process.argv[2] ?? 'pnpm-audit.txt';
 const report = fs.readFileSync(path, 'utf8');
 
-const highMatch = report.match(/Severity:\s*(\d+) high/);
+const highMatch = report.match(/Severity:[^\n]*?\b(\d+)\s+high\b/);
 const highCount = highMatch ? Number(highMatch[1]) : Number.NaN;
 const knownAdvisory = report.includes('GHSA-vfj7-8cjw-p6xm');
 const knownPackage = report.includes('Package             │ braces');
