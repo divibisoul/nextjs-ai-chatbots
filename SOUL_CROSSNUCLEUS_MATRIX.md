@@ -41,8 +41,8 @@ Every N01–N06 nucleus must maintain five bidirectional peer relationships: 15 
 
 ### N04
 - N04 has a real Mesh runtime, tool registry, AI pilot, capability audit/state and hybrid transport structures.
-- The current repository tree does **not** contain the previously claimed `N04WorkerPool` file. CPU worker-pool execution therefore remains an implementation gap rather than a verified feature.
-- N04 capability reality distinguishes connected/delegated/structural/pending surfaces; `artifact.analyze` has no standalone analyzer and must not be reported as successful execution.
+- The current repository tree now contains the previously missing `lib/soul-core/N04WorkerPool.ts` as an additive, reusable bounded-worker component. The existing `N04CompositionRuntime` worker path remains intact; no execution capability was removed.
+- N04 capability reality now also includes a standalone `lib/soul-core/ArtifactAnalyzer.ts`. It is deterministic payload analysis only; resident `artifact.analyze` remains preserved and a parity test prevents semantic drift.
 
 ### N06
 - N06 currently recognizes N01–N07 at the peer-adapter boundary and exposes native capability descriptors for composition.
@@ -77,3 +77,7 @@ Every active front records WHAT_CHANGED, WHAT_WAS_FOUND, WHAT_REMAINS, WHAT_NEXT
 4. Complete evidence-based pair synergy for N01×N02, N03×N04 and N05×N06.
 5. Build cross-pair routing/composition and the distributed Super GPU scheduler over existing runtimes; do not create a duplicate Mesh.
 6. Only after those gates, open the N07 implementation/fusion stage and feed it the stabilized inputs/outputs from N01 and N06 plus the complete cross-front capability/tool/agent fabric.
+
+## N04 additive reconciliation — 2026-10-05
+
+Lote 1/2 correction applied without replacing existing N04 runtime paths: dedicated worker-pool and artifact-analyzer modules were added, the existing N04 test command now executes their validation, and the project lockfile/dependency graph was left untouched because no lock mismatch was established. This does not upgrade the evidence state to live external execution; it strengthens structural and CI evidence only.
