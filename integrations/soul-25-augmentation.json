@@ -255,7 +255,7 @@
       "access": "N04 capability fabric",
       "structural_state": "REAL",
       "requires_adapter": true,
-      "runtime_state": "ADAPTER_BOUND"
+      "runtime_state": "PROJECTED"
     },
     {
       "id": "smolagents",
