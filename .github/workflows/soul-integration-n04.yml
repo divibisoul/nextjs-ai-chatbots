@@ -1,7 +1,7 @@
 name: SOUL Integration CI - N04
 on:
   push:
-    branches: [main]
+    branches: [main, feat/n04-soul25-integration-20261003]
   pull_request:
 permissions:
   contents: read
@@ -10,6 +10,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
         with:
           submodules: recursive
       - name: Validate SOUL identity
@@ -21,3 +28,17 @@ jobs:
           if test -f .gitmodules; then
             git config -f .gitmodules --get-regexp '^submodule\..*\.path$' | awk '{print $2}' | while read p; do test -e "$p"; done
           fi
+
+      - name: Validate N04 25-source fabric
+        run: |
+          python3 - <<'PY'
+          import json
+          m=json.load(open('integrations/soul-25-augmentation.json'))
+          assert m['external_provider_count'] == 25
+          assert len(m['external_providers']) == 25
+          assert m['soul_peer_count'] == 9
+          assert m['component_id'] == 'N04'
+          print('N04 SOUL-34 / 25-UPSTREAM FABRIC: PASS')
+          PY
+      - name: N04 capability fabric and Browser-Use tests
+        run: pnpm run test:n04 -- --test-only
