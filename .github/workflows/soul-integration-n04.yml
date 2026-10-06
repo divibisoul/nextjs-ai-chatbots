@@ -10,15 +10,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: false
       - uses: pnpm/action-setup@v4
         with:
           version: 9.12.3
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
-        with:
-          submodules: false
       - name: Validate SOUL identity
         run: test -s SOUL_ECOSYSTEM.md
       - name: Validate submodules
