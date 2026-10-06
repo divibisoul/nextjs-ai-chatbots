@@ -1,7 +1,7 @@
 name: SOUL Integration CI - N04
 on:
   push:
-    branches: [main, feat/n04-soul25-integration-20261003]
+    branches: [main]
   pull_request:
 permissions:
   contents: read
@@ -18,7 +18,7 @@ jobs:
           node-version: 22
           cache: pnpm
         with:
-          submodules: recursive
+          submodules: false
       - name: Validate SOUL identity
         run: test -s SOUL_ECOSYSTEM.md
       - name: Validate submodules
