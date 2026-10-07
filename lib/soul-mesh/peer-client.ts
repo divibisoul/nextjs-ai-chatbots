@@ -246,5 +246,27 @@ export async function sendToWithCorrelation(
   return body;
 }
 
+export async function executePublicCapability(
+  provider:
+    | 'bijux-dag-runtime' | 'ouro-loop' | 'recuris' | 'fedml' | 'hivemind'
+    | 'temporal' | 'hora-graph-core' | 'cognitive-workspace' | 'ravana' | 'ray' | 'nats-go',
+  operation: string,
+  payload: unknown,
+  correlationId = randomUUID(),
+  timeoutMs = 60000,
+): Promise<SoulMeshMessage> {
+  const normalizedOperation = operation.trim();
+  if (!normalizedOperation) throw new Error('PUBLIC_CAPABILITY_OPERATION_REQUIRED');
+  return sendToWithCorrelation(
+    'N07',
+    `external.${provider}.execute@1.0.0`,
+    { payload, metadata: { provider, external_operation: normalizedOperation } },
+    correlationId,
+    correlationId,
+    timeoutMs,
+    2,
+  );
+}
+
 export const N04_OUT_CHANNELS = PEERS.map((peer) => `N04.OUT.${peer}`);
 export const N04_IN_CHANNELS = PEERS.map((peer) => `N04.IN.${peer}`);
