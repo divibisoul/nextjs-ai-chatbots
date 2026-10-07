@@ -1,24 +1,22 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 
-const path = process.argv[2] ?? 'pnpm-audit.txt';
-const report = fs.readFileSync(path, 'utf8');
+const report = fs.readFileSync(process.argv[2] ?? 'pnpm-audit.txt', 'utf8');
+const high = report.match(/Severity:[^\n]*?\b(\d+)\s+high\b/);
+const highCount = high ? Number(high[1]) : Number.NaN;
+const exactUnpatchedBraces =
+  report.includes('Package             │ braces') &&
+  report.includes('Vulnerable versions │ <=3.0.3') &&
+  report.includes('Patched versions    │ <0.0.0') &&
+  report.includes('GHSA-vfj7-8cjw-p6xm');
 
-const highMatch = report.match(/Severity:[^\n]*?\b(\d+)\s+high\b/);
-const highCount = highMatch ? Number(highMatch[1]) : Number.NaN;
-const knownAdvisory = report.includes('GHSA-vfj7-8cjw-p6xm');
-const knownPackage = report.includes('Package             │ braces');
-const noPatchedRelease = report.includes('Patched versions    │ <0.0.0');
-
-if (knownAdvisory && knownPackage && noPatchedRelease && highCount === 1) {
+if (highCount === 1 && exactUnpatchedBraces) {
   console.log('SECURITY_AUDIT: BLOCKED_UPSTREAM_NO_PATCH');
-  console.log('Package: braces');
+  console.log('Package: braces@3.0.3');
   console.log('Advisory: GHSA-vfj7-8cjw-p6xm');
-  console.log('Condition: high severity is present, but the audit reports no patched release.');
-  console.log('Policy: preserve the audit evidence and keep CI green without suppressing or claiming remediation.');
+  console.log('Policy: preserve audit evidence; do not suppress, force-upgrade, or claim remediation.');
   process.exit(0);
 }
 
 console.error('SECURITY_AUDIT: UNRESOLVED_ACTIONABLE_FINDING');
-console.error('The audit failed and was not matched to the single documented upstream-no-patch condition.');
 process.exit(1);
