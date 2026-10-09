@@ -1,11 +1,11 @@
 import { registerN04CompositionHandlers } from './N04CompositionRuntime';
-import { CollaborationSessionRunner, type CollaborationSessionRequest } from '@/lib/sara/CollaborationSessionRunner';
 import { generateText, type UIMessageStreamWriter } from 'ai';
 import type { Session } from 'next-auth';
 import { myProvider } from '@/lib/ai/providers';
 import { nucleus04Processor, Nucleus04Processor, type Nucleus04Context } from './Nucleus04Processor';
 import { createNucleus04Tools, type Nucleus04ToolContext, type Nucleus04ToolId } from './Nucleus04ToolRegistry';
 import { sendTo } from '@/lib/soul-mesh/peer-client';
+import { describeN04ExternalCapabilityFabric, resolveN04ExternalProvider } from '@/lib/soul-mesh/N04ExternalCapabilityFabric';
 import type { ChatMessage } from '@/lib/types';
 
 type ExecutableTool = { execute?: (input: unknown, options?: unknown) => unknown | Promise<unknown> };
@@ -55,11 +55,14 @@ export function createNucleus04Runtime(context: Nucleus04ToolContext) {
     return execute({ name: request.name });
   });
 
-  registerN04CompositionHandlers(processor);
-
-  processor.registerHandler('collaboration.session', async (input) => {
-    return new CollaborationSessionRunner().run(input as CollaborationSessionRequest);
+  processor.registerHandler('external.capability.fabric.describe@1.0.0', async () => describeN04ExternalCapabilityFabric());
+  processor.registerHandler('external.capability.resolve@1.0.0', async (input) => {
+    const request = input as { provider?: string };
+    if (!request.provider?.trim()) throw new Error('N04_EXTERNAL_PROVIDER_REQUIRED');
+    return { nucleus: 'N04', provider: resolveN04ExternalProvider(request.provider) };
   });
+
+  registerN04CompositionHandlers(processor);
 
   processor.registerPilot({
     id: 'n04-provider-adapter',
