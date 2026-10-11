@@ -61,3 +61,15 @@ test('request signature changes with payload', () => {
     signSoulMeshRequest(second, secret, nonce),
   );
 });
+test('N04 rejects HMAC keys shorter than the shared 32-byte minimum', () => {
+  const message = request();
+  const weak = 'short-n04-secret';
+  assert.throws(
+    () => signSoulMeshRequest(message, weak, createSoulMeshNonce()),
+    /SOUL_MESH_HMAC_SECRET_TOO_SHORT/,
+  );
+  assert.equal(
+    verifySoulMeshRequest(message, weak, createSoulMeshNonce(), '0'.repeat(64)),
+    false,
+  );
+});

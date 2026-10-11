@@ -74,10 +74,13 @@ async function attempt(
     };
 
     if (secret && nonce) {
+      if (Buffer.byteLength(secret, 'utf8') < 32) throw new Error('SOUL_MESH_HMAC_SECRET_TOO_SHORT');
       headers['x-soul-mesh-nonce'] = nonce;
       headers['x-soul-mesh-hmac'] = signSoulMeshRequest(message, secret, nonce);
     } else if (token) {
       headers.authorization = `Bearer ${token}`;
+    } else if (process.env.NODE_ENV === 'production') {
+      throw new Error(`SOUL_MESH_AUTH_NOT_CONFIGURED:${message.target}`);
     }
 
     const response = await fetch(`${url.replace(/\/$/, '')}/api/soul-mesh`, {

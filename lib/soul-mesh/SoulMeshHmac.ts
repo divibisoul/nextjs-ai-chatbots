@@ -47,8 +47,8 @@ export function createSoulMeshNonce(): string {
 }
 
 function digest(value: string, secret: string): string {
-  if (!secret || secret.length < 16) {
-    throw new Error('SOUL_MESH_HMAC_SECRET_INVALID');
+  if (!secret || Buffer.byteLength(secret, 'utf8') < 32) {
+    throw new Error('SOUL_MESH_HMAC_SECRET_TOO_SHORT');
   }
   return createHmac('sha256', secret).update(value, 'utf8').digest('hex');
 }
