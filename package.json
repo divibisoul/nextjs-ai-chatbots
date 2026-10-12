@@ -133,6 +133,7 @@
       "ws": "8.21.0",
       "postcss": "8.5.28",
       "source-map-js": "1.2.2",
+      "prosemirror-model": "1.25.12",
       "prosemirror-view": "1.42.3"
     }
   }
