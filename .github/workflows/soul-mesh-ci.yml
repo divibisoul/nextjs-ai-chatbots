@@ -25,3 +25,5 @@ jobs:
         run: pnpm exec tsc -p tsconfig.mesh.json --noEmit
       - name: Run N04 Mesh contract tests
         run: pnpm run test:n04
+      - name: Run N04 HMAC boundary tests
+        run: pnpm run test:mesh:hmac
