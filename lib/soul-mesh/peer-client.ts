@@ -131,7 +131,7 @@ async function dispatchWithRetry(
 
   // Only read-only diagnostics are eligible for retries. Application/provider calls
   // are attempted once to avoid duplicate side effects when a response is lost.
-  const attempts = RETRY_SAFE_CAPABILITIES.has(message.capability) ? maxAttempts : 1;
+  const attempts = RETRY_SAFE_CAPABILITIES.has(String(message.capability ?? '')) ? maxAttempts : 1;
   let lastError: unknown;
   for (let attemptNumber = 1; attemptNumber <= attempts; attemptNumber += 1) {
     const nonce = secret ? createSoulMeshNonce() : '';
