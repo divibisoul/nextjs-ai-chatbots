@@ -30,10 +30,14 @@ test('N04 dispatcher returns a protocol error when a capability has no handler',
   assert.equal(response.source, 'N04');
   assert.equal(response.target, 'N06');
   assert.equal(response.correlationId, request.correlationId);
+  assert.equal(response.meta?.transport, 'HTTP', 'canonical transport metadata must survive the compatibility facade');
 });
 
 test('source endpoint facade delegates to canonical protocol and responds to the peer', async () => {
-  const request = createMeshRequest('N01', 'N04', 'mesh.ping', { probe: true });
+  const request = {
+    ...createMeshRequest('N01', 'N04', 'mesh.ping', { probe: true }),
+    meta: { transport: 'HTTP' },
+  };
   assert.equal(request.protocol, canonicalProtocol);
   assert.equal(validateSourceFacade(request, 'N04'), true);
   const response = await handleSourceFacade(request, 'N04', {
