@@ -52,7 +52,6 @@ export async function handleMeshMessage(
       correlationId: canonical.correlationId,
       payload: { code: 'CAPABILITY_NOT_FOUND' },
       meta: canonical.meta,
-      transport: canonical.transport,
     });
   }
   try {
@@ -64,7 +63,6 @@ export async function handleMeshMessage(
       correlationId: canonical.correlationId,
       payload: await handler(canonical.payload),
       meta: canonical.meta,
-      transport: canonical.transport,
     });
   } catch (error) {
     return createSoulMeshMessage({
@@ -75,7 +73,6 @@ export async function handleMeshMessage(
       correlationId: canonical.correlationId,
       payload: { code: 'CAPABILITY_EXECUTION_ERROR', detail: error instanceof Error ? error.message : 'Unknown error' },
       meta: canonical.meta,
-      transport: canonical.transport,
     });
   }
 }
