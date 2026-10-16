@@ -23,7 +23,7 @@ const baseEnv = {
   AUTH_SECRET: process.env.AUTH_SECRET || 'ci-only-not-a-production-secret',
   POSTGRES_URL: process.env.POSTGRES_URL || 'postgresql://soulmesh:soulmesh@127.0.0.1:5432/soulmesh',
   SOUL_MESH_HMAC_SECRET: secret,
-  SOUL_MESH_TOKEN: '',
+  SOUL_MESH_TOKEN: randomBytes(32).toString('hex'),
   SOUL_MESH_N03_URL: n03Url,
   SOUL_MESH_HOST: '127.0.0.1',
 };
@@ -166,7 +166,7 @@ try {
     "import { signSoulMeshMessage, verifySoulMeshHmac } from './src/mesh/SoulMeshHmac.ts';",
     "const secret = process.env.SOUL_MESH_HMAC_SECRET;",
     "const message = signSoulMeshMessage(createSoulMeshMessage({source:'N03',target:'N04',kind:'request',correlationId:crypto.randomUUID(),capability:'mesh.ping',payload:{probe:'N03_N04_REAL_PROCESS_PAIR'},meta:{runtime:'nexus-aeternum-fusion',transport:'HTTP',encoding:'json',version:'1.1.0'}}), secret);",
-    "const response = await fetch(process.env.SOUL_MESH_N04_URL + '/api/soul-mesh', {method:'POST',headers:{'content-type':'application/json','x-soul-mesh-nonce':message.nonce,'x-soul-mesh-hmac':message.hmac},body:JSON.stringify(message),signal:AbortSignal.timeout(7000)});",
+    "const response = await fetch(process.env.SOUL_MESH_N04_URL + '/api/soul-mesh', {method:'POST',headers:{'content-type':'application/json','authorization':'Bearer ' + process.env.SOUL_MESH_TOKEN,'x-soul-mesh-nonce':message.nonce,'x-soul-mesh-hmac':message.hmac},body:JSON.stringify(message),signal:AbortSignal.timeout(7000)});",
     "const body = await response.json();",
     "if (!response.ok || body.kind !== 'response' || body.source !== 'N04' || body.target !== 'N03' || body.payload?.ok !== true || body.payload?.nucleus !== 'N04') throw new Error('N03_TO_N04_CONTRACT_FAILED status=' + response.status + ' body=' + JSON.stringify(body));",
     "if (!verifySoulMeshHmac(body, secret)) throw new Error('N03_TO_N04_RESPONSE_HMAC_INVALID');",
