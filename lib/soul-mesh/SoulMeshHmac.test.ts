@@ -79,6 +79,7 @@ test('N04 rejects HMAC keys shorter than the shared 32-byte minimum', () => {
 test('N04 peer client rejects an invalid response HMAC on HTTP 200', async () => {
   const originalUrl = process.env.SOUL_MESH_N05_URL;
   const originalSecret = process.env.SOUL_MESH_HMAC_SECRET;
+  const originalToken = process.env.SOUL_MESH_TOKEN;
   const originalNodeEnv = process.env.NODE_ENV;
   const server = createServer(async (request, response) => {
     const chunks: Buffer[] = [];
@@ -112,6 +113,8 @@ test('N04 peer client rejects an invalid response HMAC on HTTP 200', async () =>
     else process.env.SOUL_MESH_N05_URL = originalUrl;
     if (originalSecret === undefined) delete process.env.SOUL_MESH_HMAC_SECRET;
     else process.env.SOUL_MESH_HMAC_SECRET = originalSecret;
+    if (originalToken === undefined) delete process.env.SOUL_MESH_TOKEN;
+    else process.env.SOUL_MESH_TOKEN = originalToken;
     if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
     else process.env.NODE_ENV = originalNodeEnv;
   }
