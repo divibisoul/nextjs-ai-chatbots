@@ -61,6 +61,7 @@ jobs:
             echo "SOUL_MESH_HMAC_SECRET=$hmac_secret"
             echo "SOUL_MESH_TOKEN=$bearer_token"
             echo "AUTH_SECRET=$auth_secret"
+            echo "POSTGRES_URL=postgresql://soulmesh:soulmesh@127.0.0.1:5432/soulmesh"
           } >> "$GITHUB_ENV"
       - name: Build actual N04 production runtime
         run: pnpm run build
