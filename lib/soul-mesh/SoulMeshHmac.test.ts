@@ -207,3 +207,51 @@ test('N04 peer client sends Bearer with HMAC and verifies N05 canonical response
   }
 });
 
+test('N04 peer client verifies an N01 legacy response during staged canonical migration', async () => {
+  const originalUrl = process.env.SOUL_MESH_N01_URL;
+  const originalSecret = process.env.SOUL_MESH_HMAC_SECRET;
+  const originalToken = process.env.SOUL_MESH_TOKEN;
+  const originalNodeEnv = process.env.NODE_ENV;
+  const server = createServer(async (incomingRequest, outgoingResponse) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of incomingRequest) chunks.push(Buffer.from(chunk));
+    const incoming = JSON.parse(Buffer.concat(chunks).toString('utf8')) as SoulMeshMessage;
+    const signed = signSoulMeshResponse(incoming, { ok: true, nucleus: 'N01', signer: 'legacy' }, 'response', secret);
+    outgoingResponse.writeHead(200, { 'content-type': 'application/json' });
+    outgoingResponse.end(JSON.stringify({ ...signed.message, nonce: signed.nonce, hmac: signed.hmac }));
+  });
+
+  process.env.NODE_ENV = 'production';
+  process.env.SOUL_MESH_HMAC_SECRET = secret;
+  delete process.env.SOUL_MESH_TOKEN;
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(0, '127.0.0.1', resolve);
+    });
+    const address = server.address();
+    assert.ok(address && typeof address !== 'string');
+    process.env.SOUL_MESH_N01_URL = `http://127.0.0.1:${address.port}`;
+    const result = await sendTo('N01', 'mesh.ping', { probe: 'n04-n01-legacy-compatibility' }, 3000, 1);
+    assert.equal(result.source, 'N01');
+    assert.equal(result.target, 'N04');
+    assert.deepEqual(result.payload, { ok: true, nucleus: 'N01', signer: 'legacy' });
+  } finally {
+    try {
+      if (server.listening) {
+        await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+      }
+    } finally {
+      if (originalUrl === undefined) delete process.env.SOUL_MESH_N01_URL;
+      else process.env.SOUL_MESH_N01_URL = originalUrl;
+      if (originalSecret === undefined) delete process.env.SOUL_MESH_HMAC_SECRET;
+      else process.env.SOUL_MESH_HMAC_SECRET = originalSecret;
+      if (originalToken === undefined) delete process.env.SOUL_MESH_TOKEN;
+      else process.env.SOUL_MESH_TOKEN = originalToken;
+      if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = originalNodeEnv;
+    }
+  }
+});
+
