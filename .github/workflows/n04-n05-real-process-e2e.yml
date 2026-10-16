@@ -1,0 +1,74 @@
+name: N04-N05 Real Process E2E
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: n04-n05-real-process-e2e-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  bidirectional-http-hmac:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout N04 candidate
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.3
+      - name: Install N04 dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Checkout pinned N05 runtime
+        uses: actions/checkout@v4
+        with:
+          repository: divibisoul/nextjs-ai-chatbot
+          ref: 64e1b8719068b153130bcdbcfbbc2c78c11e1b8c
+          path: .integration/n05
+          fetch-depth: 1
+          submodules: false
+          persist-credentials: false
+      - name: Verify exact N05 source pin
+        run: test "$(git -C .integration/n05 rev-parse HEAD)" = "64e1b8719068b153130bcdbcfbbc2c78c11e1b8c"
+      - name: Install N05 dependencies
+        working-directory: .integration/n05
+        run: pnpm install --frozen-lockfile
+      - name: Generate ephemeral HMAC, bearer and auth secrets
+        shell: bash
+        run: |
+          hmac_secret="$(openssl rand -hex 48)"
+          bearer_token="$(openssl rand -hex 32)"
+          auth_secret="$(openssl rand -hex 32)"
+          echo "::add-mask::$hmac_secret"
+          echo "::add-mask::$bearer_token"
+          echo "::add-mask::$auth_secret"
+          {
+            echo "SOUL_MESH_HMAC_SECRET=$hmac_secret"
+            echo "SOUL_MESH_TOKEN=$bearer_token"
+            echo "AUTH_SECRET=$auth_secret"
+          } >> "$GITHUB_ENV"
+      - name: Build actual N04 production runtime
+        run: pnpm run build
+      - name: Build actual N05 production runtime
+        working-directory: .integration/n05
+        run: pnpm run build
+      - name: Bidirectional N04↔N05 real-process HTTP/HMAC E2E
+        env:
+          SOUL_N04_WORKDIR: ${{ github.workspace }}
+          SOUL_N05_WORKDIR: ${{ github.workspace }}/.integration/n05
+        run: node scripts/n04-n05-real-process-e2e.mjs
