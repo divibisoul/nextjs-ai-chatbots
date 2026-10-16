@@ -10,34 +10,8 @@ import { describeBrowserUseAdapter } from '@/lib/soul-core/BrowserUseAdapter';
 import {
   signCanonicalSoulMeshResponse,
   signSoulMeshResponse,
-  verifySoulMeshRequest,
 } from '@/lib/soul-mesh/SoulMeshHmac';
-
-type MeshAuthorization = 'hmac' | 'bearer' | 'unauthorized' | 'misconfigured';
-
-function authorizationState(
-  request: Request,
-  message: SoulMeshMessage,
-): MeshAuthorization {
-  const secret = process.env.SOUL_MESH_HMAC_SECRET?.trim();
-  const nonce = request.headers.get('x-soul-mesh-nonce')?.trim() ?? '';
-  const signature = request.headers.get('x-soul-mesh-hmac')?.trim() ?? '';
-
-  if (secret && nonce && signature) {
-    return verifySoulMeshRequest(message, secret, nonce, signature)
-      ? 'hmac'
-      : 'unauthorized';
-  }
-
-  const token = process.env.SOUL_MESH_TOKEN?.trim();
-  if (!token) {
-    return process.env.NODE_ENV === 'production' ? 'misconfigured' : 'bearer';
-  }
-
-  return request.headers.get('authorization') === `Bearer ${token}`
-    ? 'bearer'
-    : 'unauthorized';
-}
+import { authorizationState } from '@/lib/soul-mesh/MeshRequestAuthorization';
 
 function createMeshDataStream(): UIMessageStreamWriter<ChatMessage> {
   return { write: () => undefined } as unknown as UIMessageStreamWriter<ChatMessage>;
