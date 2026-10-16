@@ -17,6 +17,20 @@ concurrency:
 jobs:
   bidirectional-http-hmac:
     runs-on: ubuntu-22.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: soulmesh
+          POSTGRES_PASSWORD: soulmesh
+          POSTGRES_DB: soulmesh
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U soulmesh -d soulmesh"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     timeout-minutes: 35
     steps:
       - name: Checkout N04 candidate
@@ -71,4 +85,5 @@ jobs:
         env:
           SOUL_N04_WORKDIR: ${{ github.workspace }}
           SOUL_N05_WORKDIR: ${{ github.workspace }}/.integration/n05
+          POSTGRES_URL: postgresql://soulmesh:soulmesh@127.0.0.1:5432/soulmesh
         run: node scripts/n04-n05-real-process-e2e.mjs
