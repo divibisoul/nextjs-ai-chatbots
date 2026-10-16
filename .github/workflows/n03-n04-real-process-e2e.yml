@@ -1,10 +1,7 @@
 name: N03-N04 Real Process E2E
 
 on:
-  pull_request:
-    branches: [main]
-  push:
-    branches: [main]
+  workflow_call:
   workflow_dispatch:
 
 permissions:
@@ -52,8 +49,8 @@ jobs:
       - name: Bidirectional N03↔N04 real-process HTTP/HMAC E2E
         working-directory: n04
         env:
-          SOUL_N04_WORKDIR: \${{ github.workspace }}/n04
-          SOUL_N03_WORKDIR: \${{ github.workspace }}/n03
+          SOUL_N04_WORKDIR: ${{ github.workspace }}/n04
+          SOUL_N03_WORKDIR: ${{ github.workspace }}/n03
           POSTGRES_URL: postgresql://soulmesh:soulmesh@127.0.0.1:5432/soulmesh
           AUTH_SECRET: ci-only-not-a-production-secret
         run: node scripts/n03-n04-real-process-e2e.mjs
