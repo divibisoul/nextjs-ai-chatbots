@@ -4,8 +4,10 @@ import { createServer } from 'node:http';
 import { sendTo } from './peer-client';
 import {
   createSoulMeshNonce,
+  signCanonicalSoulMeshResponse,
   signSoulMeshRequest,
   signSoulMeshResponse,
+  verifyCanonicalSoulMeshResponse,
   verifySoulMeshRequest,
   verifySoulMeshResponse,
 } from './SoulMeshHmac';
@@ -123,3 +125,85 @@ test('N04 peer client rejects an invalid response HMAC on HTTP 200', async () =>
     }
   }
 });
+
+test('N04 canonical peer response HMAC is distinct from the preserved N07 legacy signature', () => {
+  const message: SoulMeshMessage = {
+    ...request(),
+    source: 'N05',
+    target: 'N04',
+    capability: 'mesh.ping',
+  };
+  const signed = signCanonicalSoulMeshResponse(message, { ok: true, nucleus: 'N04' }, 'response', secret);
+  assert.equal(verifyCanonicalSoulMeshResponse(message, signed.message, secret), true);
+  assert.equal(
+    verifySoulMeshResponse(message, signed.message, secret, signed.nonce, signed.hmac),
+    false,
+  );
+});
+
+test('N04 peer client sends Bearer with HMAC and verifies N05 canonical response on a real loopback HTTP server', async () => {
+  const originalUrl = process.env.SOUL_MESH_N05_URL;
+  const originalSecret = process.env.SOUL_MESH_HMAC_SECRET;
+  const originalToken = process.env.SOUL_MESH_TOKEN;
+  const originalNodeEnv = process.env.NODE_ENV;
+  const token = 'n04-n05-loopback-token';
+  let observed: { authorization: string | undefined; requestHmacValid: boolean } | undefined;
+  const server = createServer(async (incomingRequest, outgoingResponse) => {
+    try {
+      const chunks: Buffer[] = [];
+      for await (const chunk of incomingRequest) chunks.push(Buffer.from(chunk));
+      const incoming = JSON.parse(Buffer.concat(chunks).toString('utf8')) as SoulMeshMessage;
+      const headers = incomingRequest.headers;
+      const nonce = String(headers['x-soul-mesh-nonce'] ?? '');
+      const hmac = String(headers['x-soul-mesh-hmac'] ?? '');
+      observed = {
+        authorization: headers.authorization,
+        requestHmacValid: verifySoulMeshRequest(incoming, secret, nonce, hmac),
+      };
+      const signed = signCanonicalSoulMeshResponse(incoming, { ok: true, nucleus: 'N05' }, 'response', secret);
+      outgoingResponse.writeHead(200, { 'content-type': 'application/json' });
+      outgoingResponse.end(JSON.stringify(signed.message));
+    } catch (error) {
+      outgoingResponse.writeHead(500, { 'content-type': 'text/plain' });
+      outgoingResponse.end(error instanceof Error ? error.message : String(error));
+    }
+  });
+
+  process.env.NODE_ENV = 'production';
+  process.env.SOUL_MESH_HMAC_SECRET = secret;
+  process.env.SOUL_MESH_TOKEN = token;
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(0, '127.0.0.1', resolve);
+    });
+    const address = server.address();
+    assert.ok(address && typeof address !== 'string');
+    process.env.SOUL_MESH_N05_URL = `http://127.0.0.1:${address.port}`;
+
+    const result = await sendTo('N05', 'mesh.ping', { probe: 'n04-n05-canonical-http' }, 3000, 1);
+
+    assert.equal(observed?.authorization, `Bearer ${token}`);
+    assert.equal(observed?.requestHmacValid, true);
+    assert.equal(result.source, 'N05');
+    assert.equal(result.target, 'N04');
+    assert.deepEqual(result.payload, { ok: true, nucleus: 'N05' });
+  } finally {
+    try {
+      if (server.listening) {
+        await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+      }
+    } finally {
+      if (originalUrl === undefined) delete process.env.SOUL_MESH_N05_URL;
+      else process.env.SOUL_MESH_N05_URL = originalUrl;
+      if (originalSecret === undefined) delete process.env.SOUL_MESH_HMAC_SECRET;
+      else process.env.SOUL_MESH_HMAC_SECRET = originalSecret;
+      if (originalToken === undefined) delete process.env.SOUL_MESH_TOKEN;
+      else process.env.SOUL_MESH_TOKEN = originalToken;
+      if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = originalNodeEnv;
+    }
+  }
+});
+
