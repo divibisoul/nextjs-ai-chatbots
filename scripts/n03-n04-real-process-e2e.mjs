@@ -145,7 +145,9 @@ try {
   });
 
   const n04Driver = [
-    "import { sendTo } from './lib/soul-mesh/peer-client.ts';",
+    "import * as peerClientModule from './lib/soul-mesh/peer-client.ts';",
+    "const sendTo = peerClientModule.sendTo ?? peerClientModule.default?.sendTo;",
+    "if (typeof sendTo !== 'function') throw new Error('N04_PEER_CLIENT_SEND_TO_EXPORT_MISSING');",
     "const r = await sendTo('N03', 'mesh.ping', { probe: 'N03_N04_REAL_PROCESS_PAIR' }, 5000, 1);",
     "if (r.kind !== 'response' || r.source !== 'N03' || r.target !== 'N04' || r.payload?.ok !== true || r.payload?.handler !== 'N03.mesh.ping') throw new Error('N04_TO_N03_CONTRACT_OR_HMAC_FAILED: ' + JSON.stringify(r));",
     "console.log('N04_TO_N03_REAL_PROCESS_E2E_PASS ' + JSON.stringify({source:r.source,target:r.target,capability:r.capability,transport:'HTTP',requestAuthentication:'HMAC-SHA256',responseAuthentication:'HMAC-SHA256',payload:r.payload}));",
