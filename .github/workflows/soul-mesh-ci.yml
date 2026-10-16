@@ -25,3 +25,12 @@ jobs:
         run: pnpm exec tsc -p tsconfig.mesh.json --noEmit
       - name: Run N04 Mesh contract tests
         run: pnpm run test:n04
+      - name: Run N04 HMAC boundary tests
+        run: pnpm run test:mesh:hmac
+
+  live-peer-e2e:
+    name: N03↔N04 bidirectional real-process E2E
+    needs: verify
+    permissions:
+      contents: read
+    uses: ./.github/workflows/n03-n04-real-process-e2e.yml

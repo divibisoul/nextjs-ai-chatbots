@@ -1,0 +1,56 @@
+name: N03-N04 Real Process E2E
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bidirectional-http-hmac:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout N04 candidate
+        uses: actions/checkout@v4
+        with:
+          path: n04
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Enable pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.3
+      - name: Install N04 dependencies
+        working-directory: n04
+        run: pnpm install --frozen-lockfile
+      - name: Build the actual N04 Next.js runtime
+        working-directory: n04
+        run: pnpm run build
+      - name: Checkout pinned, merged N03 runtime
+        uses: actions/checkout@v4
+        with:
+          repository: divibisoul/nexus-aeternum-fusion
+          ref: 676c20cb5e537944a5a75d8e4920ff48c010cfbf
+          path: n03
+          submodules: false
+          persist-credentials: false
+      - name: Setup Bun for the actual N03 runtime
+        uses: oven-sh/setup-bun@v2
+      - name: Install N03 runtime dependencies
+        working-directory: n03
+        run: bun install --no-save
+      - name: Verify exact N03 source pin
+        run: test "$(git -C n03 rev-parse HEAD)" = "676c20cb5e537944a5a75d8e4920ff48c010cfbf"
+      - name: Bidirectional N03↔N04 real-process HTTP/HMAC E2E
+        working-directory: n04
+        env:
+          SOUL_N04_WORKDIR: ${{ github.workspace }}/n04
+          SOUL_N03_WORKDIR: ${{ github.workspace }}/n03
+          POSTGRES_URL: postgresql://soulmesh:soulmesh@127.0.0.1:5432/soulmesh
+          AUTH_SECRET: ci-only-not-a-production-secret
+        run: node scripts/n03-n04-real-process-e2e.mjs

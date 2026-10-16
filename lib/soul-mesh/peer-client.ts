@@ -74,10 +74,13 @@ async function attempt(
     };
 
     if (secret && nonce) {
+      if (Buffer.byteLength(secret, 'utf8') < 32) throw new Error('SOUL_MESH_HMAC_SECRET_TOO_SHORT');
       headers['x-soul-mesh-nonce'] = nonce;
       headers['x-soul-mesh-hmac'] = signSoulMeshRequest(message, secret, nonce);
     } else if (token) {
       headers.authorization = `Bearer ${token}`;
+    } else if (process.env.NODE_ENV === 'production') {
+      throw new Error(`SOUL_MESH_AUTH_NOT_CONFIGURED:${message.target}`);
     }
 
     const response = await fetch(`${url.replace(/\/$/, '')}/api/soul-mesh`, {
@@ -100,6 +103,86 @@ async function attempt(
   }
 }
 
+const RETRY_SAFE_CAPABILITIES = new Set([
+  'mesh.ping',
+  'mesh.describe',
+  'capability.list',
+  'mesh.handshake',
+  'sara.health',
+  'sara.state',
+  'sara.capabilities',
+  'sara.trace',
+]);
+
+async function dispatchWithRetry(
+  url: string,
+  message: SoulMeshMessage,
+  timeoutMs: number,
+  maxAttempts: number,
+): Promise<SoulMeshMessage> {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error('SOUL_MESH_INVALID_TIMEOUT');
+  if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 3) throw new Error('SOUL_MESH_INVALID_ATTEMPTS');
+  const secret = process.env.SOUL_MESH_HMAC_SECRET?.trim();
+  const token = process.env.SOUL_MESH_TOKEN?.trim();
+  if (secret && Buffer.byteLength(secret, 'utf8') < 32) throw new Error('SOUL_MESH_HMAC_SECRET_TOO_SHORT');
+  if (!secret && !token && process.env.NODE_ENV === 'production') {
+    throw new Error(`SOUL_MESH_AUTH_NOT_CONFIGURED:${message.target}`);
+  }
+
+  // Only read-only diagnostics are eligible for retries. Application/provider calls
+  // are attempted once to avoid duplicate side effects when a response is lost.
+  const attempts = RETRY_SAFE_CAPABILITIES.has(String(message.capability ?? '')) ? maxAttempts : 1;
+  let lastError: unknown;
+  for (let attemptNumber = 1; attemptNumber <= attempts; attemptNumber += 1) {
+    const nonce = secret ? createSoulMeshNonce() : '';
+    const meta = { ...(message.meta ?? {}) } as Record<string, unknown>;
+    delete meta.nonce;
+    if (nonce) meta.nonce = nonce;
+    const attemptMessage: SoulMeshMessage = {
+      ...message,
+      timestamp: Date.now(),
+      ...(nonce ? { nonce } : {}),
+      meta,
+    };
+
+    try {
+      const { response, body } = await attempt(url, attemptMessage, timeoutMs);
+      assertResponse(attemptMessage, body);
+      const secretNow = process.env.SOUL_MESH_HMAC_SECRET?.trim();
+      if (secretNow) {
+        verifySoulMeshResponse(
+          attemptMessage,
+          body,
+          secretNow,
+          String(body.nonce ?? ''),
+          String(body.hmac ?? ''),
+        );
+      }
+
+      // Authenticate the envelope before acting on HTTP status or remote-error details.
+      if (!response.ok) {
+        if (attemptNumber < attempts && isRetryableStatus(response.status)) {
+          await new Promise((resolve) => setTimeout(resolve, 150 * 2 ** (attemptNumber - 1)));
+          continue;
+        }
+        throw new Error(`SOUL_MESH_REMOTE_ERROR:${message.target}:${response.status}`);
+      }
+      if (body.kind === 'error') throw new Error(`SOUL_MESH_REMOTE_ERROR:${message.target}`);
+      return body;
+    } catch (error) {
+      lastError = error;
+      if (attemptNumber < attempts && retryableError(error)) {
+        await new Promise((resolve) => setTimeout(resolve, 150 * 2 ** (attemptNumber - 1)));
+        continue;
+      }
+      break;
+    }
+  }
+  throw lastError instanceof Error
+    ? lastError
+    : new Error(`SOUL_MESH_REQUEST_FAILED:${message.target}`);
+}
+
 export async function sendTo(
   target: N04Peer,
   capability: string,
@@ -108,22 +191,9 @@ export async function sendTo(
   maxAttempts = 2,
 ): Promise<SoulMeshMessage> {
   const url = peerUrl(target);
-  if (!url) {
-    throw new Error(`SOUL_MESH_PEER_URL_NOT_CONFIGURED:${target}`);
-  }
-  if (!capability.trim()) {
-    throw new Error('SOUL_MESH_CAPABILITY_REQUIRED');
-  }
-  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
-    throw new Error('SOUL_MESH_INVALID_TIMEOUT');
-  }
-  if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 3) {
-    throw new Error('SOUL_MESH_INVALID_ATTEMPTS');
-  }
-
+  if (!url) throw new Error(`SOUL_MESH_PEER_URL_NOT_CONFIGURED:${target}`);
+  if (!capability.trim()) throw new Error('SOUL_MESH_CAPABILITY_REQUIRED');
   const correlationId = randomUUID();
-  const secret = process.env.SOUL_MESH_HMAC_SECRET?.trim();
-  const nonce = secret ? createSoulMeshNonce() : '';
   const message: SoulMeshMessage = {
     protocol: 'soul-mesh/1',
     contractVersion: '1.1.0',
@@ -135,62 +205,15 @@ export async function sendTo(
     capability,
     payload,
     timestamp: Date.now(),
-    ...(nonce ? { nonce } : {}),
     meta: {
       runtime: 'nextjs-ai-chatbots',
       transport: 'HTTP',
       encoding: 'json',
       version: '1.1.0',
       traceId: correlationId,
-      ...(nonce ? { nonce } : {}),
     },
   };
-
-  let lastError: unknown;
-  for (let attemptNumber = 1; attemptNumber <= maxAttempts; attemptNumber += 1) {
-    try {
-      const { response, body } = await attempt(url, message, timeoutMs);
-      if (!response.ok) {
-        if (attemptNumber < maxAttempts && isRetryableStatus(response.status)) {
-          await new Promise((resolve) =>
-            setTimeout(resolve, 150 * 2 ** (attemptNumber - 1)),
-          );
-          continue;
-        }
-        throw new Error(`SOUL_MESH_REMOTE_ERROR:${target}:${response.status}`);
-      }
-
-      assertResponse(message, body);
-      const secretNow = process.env.SOUL_MESH_HMAC_SECRET?.trim();
-      if (secretNow) {
-        verifySoulMeshResponse(
-          message,
-          body,
-          secretNow,
-          String(body.nonce ?? ''),
-          String(body.hmac ?? ''),
-        );
-      }
-
-      if (body.kind === 'error') {
-        throw new Error(`SOUL_MESH_REMOTE_ERROR:${target}`);
-      }
-      return body;
-    } catch (error) {
-      lastError = error;
-      if (attemptNumber < maxAttempts && retryableError(error)) {
-        await new Promise((resolve) =>
-          setTimeout(resolve, 150 * 2 ** (attemptNumber - 1)),
-        );
-        continue;
-      }
-      break;
-    }
-  }
-
-  throw lastError instanceof Error
-    ? lastError
-    : new Error(`SOUL_MESH_REQUEST_FAILED:${target}`);
+  return dispatchWithRetry(url, message, timeoutMs, maxAttempts);
 }
 
 export async function sendToWithCorrelation(
@@ -206,44 +229,49 @@ export async function sendToWithCorrelation(
   if (!url) throw new Error(`SOUL_MESH_PEER_URL_NOT_CONFIGURED:${target}`);
   if (!capability.trim()) throw new Error('SOUL_MESH_CAPABILITY_REQUIRED');
   if (!correlationId.trim()) throw new Error('SOUL_MESH_CORRELATION_REQUIRED');
-  const secret = process.env.SOUL_MESH_HMAC_SECRET?.trim();
-  const nonce = secret ? createSoulMeshNonce() : '';
+  const resolvedCorrelation = correlationId.trim();
   const message: SoulMeshMessage = {
     protocol: 'soul-mesh/1',
     contractVersion: '1.1.0',
     id: randomUUID(),
-    correlationId: correlationId.trim(),
+    correlationId: resolvedCorrelation,
     source: NUCLEUS_ID,
     target,
     kind: 'request',
     capability,
     payload,
     timestamp: Date.now(),
-    ...(nonce ? { nonce } : {}),
     meta: {
       runtime: 'nextjs-ai-chatbots',
       transport: 'HTTP',
       encoding: 'json',
       version: '1.1.0',
-      traceId: traceId.trim() || correlationId.trim(),
-      ...(nonce ? { nonce } : {}),
+      traceId: traceId.trim() || resolvedCorrelation,
     },
   };
-  const { response, body } = await attempt(url, message, timeoutMs);
-  if (!response.ok) throw new Error(`SOUL_MESH_REMOTE_ERROR:${target}:${response.status}`);
-  assertResponse(message, body);
-  const secretNow = process.env.SOUL_MESH_HMAC_SECRET?.trim();
-  if (secretNow) {
-    verifySoulMeshResponse(
-      message,
-      body,
-      secretNow,
-      String(body.nonce ?? ''),
-      String(body.hmac ?? ''),
-    );
-  }
-  if (body.kind === 'error') throw new Error(`SOUL_MESH_REMOTE_ERROR:${target}`);
-  return body;
+  return dispatchWithRetry(url, message, timeoutMs, maxAttempts);
+}
+
+export async function executePublicCapability(
+  provider:
+    | 'bijux-dag-runtime' | 'ouro-loop' | 'recuris' | 'fedml' | 'hivemind'
+    | 'temporal' | 'hora-graph-core' | 'cognitive-workspace' | 'ravana' | 'ray' | 'nats-go',
+  operation: string,
+  payload: unknown,
+  correlationId = randomUUID(),
+  timeoutMs = 60000,
+): Promise<SoulMeshMessage> {
+  const normalizedOperation = operation.trim();
+  if (!normalizedOperation) throw new Error('PUBLIC_CAPABILITY_OPERATION_REQUIRED');
+  return sendToWithCorrelation(
+    'N07',
+    `external.${provider}.execute@1.0.0`,
+    { payload, metadata: { provider, external_operation: normalizedOperation } },
+    correlationId,
+    correlationId,
+    timeoutMs,
+    2,
+  );
 }
 
 export const N04_OUT_CHANNELS = PEERS.map((peer) => `N04.OUT.${peer}`);
