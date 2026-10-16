@@ -150,13 +150,14 @@ async function dispatchWithRetry(
       assertResponse(attemptMessage, body);
       const secretNow = process.env.SOUL_MESH_HMAC_SECRET?.trim();
       if (secretNow) {
-        verifySoulMeshResponse(
+        const authenticated = verifySoulMeshResponse(
           attemptMessage,
           body,
           secretNow,
           String(body.nonce ?? ''),
           String(body.hmac ?? ''),
         );
+        if (!authenticated) throw new Error('SOUL_MESH_RESPONSE_HMAC_INVALID');
       }
 
       // Authenticate the envelope before acting on HTTP status or remote-error details.
