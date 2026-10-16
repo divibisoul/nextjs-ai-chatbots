@@ -94,12 +94,11 @@ test('N04 peer client rejects an invalid response HMAC on HTTP 200', async () =>
   process.env.SOUL_MESH_HMAC_SECRET = secret;
   delete process.env.SOUL_MESH_TOKEN;
 
-  await new Promise<void>((resolve, reject) => {
-    server.once('error', reject);
-    server.listen(0, '127.0.0.1', resolve);
-  });
-
   try {
+    await new Promise<void>((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(0, '127.0.0.1', resolve);
+    });
     const address = server.address();
     assert.ok(address && typeof address !== 'string');
     process.env.SOUL_MESH_N05_URL = `http://127.0.0.1:${address.port}`;
@@ -108,14 +107,19 @@ test('N04 peer client rejects an invalid response HMAC on HTTP 200', async () =>
       /SOUL_MESH_RESPONSE_HMAC_INVALID/,
     );
   } finally {
-    await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
-    if (originalUrl === undefined) delete process.env.SOUL_MESH_N05_URL;
-    else process.env.SOUL_MESH_N05_URL = originalUrl;
-    if (originalSecret === undefined) delete process.env.SOUL_MESH_HMAC_SECRET;
-    else process.env.SOUL_MESH_HMAC_SECRET = originalSecret;
-    if (originalToken === undefined) delete process.env.SOUL_MESH_TOKEN;
-    else process.env.SOUL_MESH_TOKEN = originalToken;
-    if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
-    else process.env.NODE_ENV = originalNodeEnv;
+    try {
+      if (server.listening) {
+        await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+      }
+    } finally {
+      if (originalUrl === undefined) delete process.env.SOUL_MESH_N05_URL;
+      else process.env.SOUL_MESH_N05_URL = originalUrl;
+      if (originalSecret === undefined) delete process.env.SOUL_MESH_HMAC_SECRET;
+      else process.env.SOUL_MESH_HMAC_SECRET = originalSecret;
+      if (originalToken === undefined) delete process.env.SOUL_MESH_TOKEN;
+      else process.env.SOUL_MESH_TOKEN = originalToken;
+      if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = originalNodeEnv;
+    }
   }
 });
