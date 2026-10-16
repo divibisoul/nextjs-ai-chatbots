@@ -168,6 +168,47 @@ try {
     throw new Error('N04 peer client did not produce the N04→N05 real-process pass marker.\n' + n04Evidence);
   }
 
+  const bearerOnlyEnvelope = {
+    protocol: 'soul-mesh/1',
+    contractVersion: '1.1.0',
+    id: 'n05-bearer-only-attempt',
+    correlationId: 'n04-bearer-only-rejection',
+    source: 'N05',
+    target: 'N04',
+    kind: 'request',
+    capability: 'mesh.ping',
+    payload: { probe: 'bearer-only-must-be-rejected' },
+    timestamp: Date.now(),
+    meta: {
+      runtime: 'n05-n06-real-process-e2e',
+      transport: 'HTTP',
+      encoding: 'json',
+      version: '1.1.0',
+      traceId: 'n04-bearer-only-rejection',
+    },
+  };
+  const bearerOnlyResponse = await fetch(n04Url + '/api/soul-mesh', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: 'Bearer ' + token,
+    },
+    body: JSON.stringify(bearerOnlyEnvelope),
+    cache: 'no-store',
+    signal: AbortSignal.timeout(5000),
+  });
+  const bearerOnlyBody = await bearerOnlyResponse.json().catch(() => null);
+  if (bearerOnlyResponse.status !== 401 || bearerOnlyBody?.error !== 'UNAUTHORIZED') {
+    throw new Error('N04_BEARER_ONLY_HMAC_BYPASS: actual production server did not reject a bearer-only message with HMAC configured.');
+  }
+  const bearerOnlyEvidence = 'N04_BEARER_ONLY_HMAC_REJECTED ' + JSON.stringify({
+    target: 'N04 actual Next.js production process',
+    status: bearerOnlyResponse.status,
+    error: bearerOnlyBody.error,
+    hmacHeaderSent: false,
+    accepted: false,
+  });
+
   const n05Driver = [
     "import * as adapterModule from './lib/soul-mesh/adapter.ts';",
     "const sendToNucleus = adapterModule.sendToNucleus ?? adapterModule.default?.sendToNucleus;",
@@ -188,6 +229,7 @@ try {
     evidence: {
       independentN04Server: 'actual Next.js production HTTP process',
       independentN05Server: 'actual Next.js production HTTP process',
+      bearerOnlyRejectedByN04: bearerOnlyEvidence,
       n04ClientToN05Server: n04Evidence.trim(),
       n05ClientToN04Server: n05Evidence.trim(),
       requestAuthentication: 'HMAC-SHA256',
