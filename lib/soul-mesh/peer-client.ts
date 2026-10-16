@@ -157,9 +157,9 @@ async function dispatchWithRetry(
           String(body.nonce ?? body.meta?.nonce ?? ''),
           String(body.hmac ?? ''),
         );
-        // N02 still emits its established legacy response envelope. N03 accepts
-        // both generations and currently emits legacy; all other N01-N06 peers
-        // are held to the canonical response format. N07 remains legacy.
+        // N01 and N03 still emit legacy responses on their current server path;
+        // accept either verified format during migration. N02/N07 retain their
+        // dedicated legacy contract, while N05/N06 require canonical responses.
         const authenticated = message.target === 'N07' || message.target === 'N02'
           ? legacyResponseValid()
           : message.target === 'N01' || message.target === 'N03'
