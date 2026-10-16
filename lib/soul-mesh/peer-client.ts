@@ -162,7 +162,7 @@ async function dispatchWithRetry(
         // are held to the canonical response format. N07 remains legacy.
         const authenticated = message.target === 'N07' || message.target === 'N02'
           ? legacyResponseValid()
-          : message.target === 'N03'
+          : message.target === 'N01' || message.target === 'N03'
             ? verifyCanonicalSoulMeshResponse(attemptMessage, body, secretNow) || legacyResponseValid()
             : verifyCanonicalSoulMeshResponse(attemptMessage, body, secretNow);
         if (!authenticated) throw new Error('SOUL_MESH_RESPONSE_HMAC_INVALID');
