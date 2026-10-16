@@ -8,6 +8,7 @@ import { createN04MeshHandler } from '@/lib/soul-mesh/endpoint';
 import { N04_RESIDENT_AGENT } from '@/lib/soul-mesh/N04ResidentAgent';
 import { describeBrowserUseAdapter } from '@/lib/soul-core/BrowserUseAdapter';
 import {
+  signCanonicalSoulMeshResponse,
   signSoulMeshResponse,
   verifySoulMeshRequest,
 } from '@/lib/soul-mesh/SoulMeshHmac';
@@ -63,7 +64,11 @@ function meshResponse(
   const secret = process.env.SOUL_MESH_HMAC_SECRET?.trim();
   if (!secret) return base;
 
-  const signed = signSoulMeshResponse(message, payload, kind, secret);
+  // Preserve N07's existing legacy response contract. N01-N06 use the
+  // canonical soul-mesh/1 response envelope for interoperable HMAC verification.
+  const signed = message.source === 'N07'
+    ? signSoulMeshResponse(message, payload, kind, secret)
+    : signCanonicalSoulMeshResponse(message, payload, kind, secret);
   return {
     ...signed.message,
     nonce: signed.nonce,
