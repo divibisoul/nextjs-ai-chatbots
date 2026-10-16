@@ -150,15 +150,21 @@ async function dispatchWithRetry(
       assertResponse(attemptMessage, body);
       const secretNow = process.env.SOUL_MESH_HMAC_SECRET?.trim();
       if (secretNow) {
-        const authenticated = message.target === 'N07'
-          ? verifySoulMeshResponse(
-              attemptMessage,
-              body,
-              secretNow,
-              String(body.nonce ?? body.meta?.nonce ?? ''),
-              String(body.hmac ?? ''),
-            )
-          : verifyCanonicalSoulMeshResponse(attemptMessage, body, secretNow);
+        const legacyResponseValid = () => verifySoulMeshResponse(
+          attemptMessage,
+          body,
+          secretNow,
+          String(body.nonce ?? body.meta?.nonce ?? ''),
+          String(body.hmac ?? ''),
+        );
+        // N02 still emits its established legacy response envelope. N03 accepts
+        // both generations and currently emits legacy; all other N01-N06 peers
+        // are held to the canonical response format. N07 remains legacy.
+        const authenticated = message.target === 'N07' || message.target === 'N02'
+          ? legacyResponseValid()
+          : message.target === 'N03'
+            ? verifyCanonicalSoulMeshResponse(attemptMessage, body, secretNow) || legacyResponseValid()
+            : verifyCanonicalSoulMeshResponse(attemptMessage, body, secretNow);
         if (!authenticated) throw new Error('SOUL_MESH_RESPONSE_HMAC_INVALID');
       }
 
