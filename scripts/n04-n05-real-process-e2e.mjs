@@ -17,11 +17,16 @@ const n04Url = 'http://127.0.0.1:' + n04Port;
 const n05Url = 'http://127.0.0.1:' + n05Port;
 const secret = process.env.SOUL_MESH_HMAC_SECRET || randomBytes(48).toString('hex');
 const token = process.env.SOUL_MESH_TOKEN || randomBytes(32).toString('hex');
+const databaseUrl = process.env.POSTGRES_URL?.trim();
+if (!databaseUrl) {
+  throw new Error('SOUL_MESH_E2E_REAL_POSTGRES_URL_REQUIRED: configure the healthy PostgreSQL service; synthetic URLs are not accepted.');
+}
+
 const commonEnv = {
   ...process.env,
   NODE_ENV: 'production',
   AUTH_SECRET: process.env.AUTH_SECRET || randomBytes(32).toString('hex'),
-  POSTGRES_URL: process.env.POSTGRES_URL || 'postgresql://soulmesh:soulmesh@127.0.0.1:5432/soulmesh',
+  POSTGRES_URL: databaseUrl,
   SOUL_MESH_HMAC_SECRET: secret,
   SOUL_MESH_TOKEN: token,
   SOUL_MESH_HOST: '127.0.0.1',
