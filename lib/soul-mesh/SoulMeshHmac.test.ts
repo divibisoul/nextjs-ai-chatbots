@@ -65,6 +65,42 @@ test('request signature changes with payload', () => {
     signSoulMeshRequest(second, secret, nonce),
   );
 });
+test('N04 production refuses Bearer-only Mesh when HMAC is unconfigured', async () => {
+  const originalUrl = process.env.SOUL_MESH_N05_URL;
+  const originalSecret = process.env.SOUL_MESH_HMAC_SECRET;
+  const originalToken = process.env.SOUL_MESH_TOKEN;
+  const originalNodeEnv = process.env.NODE_ENV;
+  let networkCalls = 0;
+  const originalFetch = globalThis.fetch;
+
+  process.env.NODE_ENV = 'production';
+  delete process.env.SOUL_MESH_HMAC_SECRET;
+  process.env.SOUL_MESH_TOKEN = 'configured-bearer-token-without-hmac';
+  process.env.SOUL_MESH_N05_URL = 'http://127.0.0.1:1';
+  globalThis.fetch = async () => {
+    networkCalls += 1;
+    return new Response('{}', { status: 200 });
+  };
+
+  try {
+    await assert.rejects(
+      sendTo('N05', 'mesh.ping', { probe: 'bearer-must-not-replace-hmac' }),
+      /SOUL_MESH_HMAC_NOT_CONFIGURED:N05/,
+    );
+    assert.equal(networkCalls, 0, 'the request must fail before contacting any peer');
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalUrl === undefined) delete process.env.SOUL_MESH_N05_URL;
+    else process.env.SOUL_MESH_N05_URL = originalUrl;
+    if (originalSecret === undefined) delete process.env.SOUL_MESH_HMAC_SECRET;
+    else process.env.SOUL_MESH_HMAC_SECRET = originalSecret;
+    if (originalToken === undefined) delete process.env.SOUL_MESH_TOKEN;
+    else process.env.SOUL_MESH_TOKEN = originalToken;
+    if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = originalNodeEnv;
+  }
+});
+
 test('N04 rejects HMAC keys shorter than the shared 32-byte minimum', () => {
   const message = request();
   const weak = 'short-n04-secret';
