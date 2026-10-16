@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createServer } from 'node:http';
 import { sendTo } from './peer-client';
+import { authorizationState } from './MeshRequestAuthorization';
 import {
   createSoulMeshNonce,
   signCanonicalSoulMeshResponse,
@@ -92,6 +93,84 @@ test('N04 production refuses Bearer-only Mesh when HMAC is unconfigured', async 
     globalThis.fetch = originalFetch;
     if (originalUrl === undefined) delete process.env.SOUL_MESH_N05_URL;
     else process.env.SOUL_MESH_N05_URL = originalUrl;
+    if (originalSecret === undefined) delete process.env.SOUL_MESH_HMAC_SECRET;
+    else process.env.SOUL_MESH_HMAC_SECRET = originalSecret;
+    if (originalToken === undefined) delete process.env.SOUL_MESH_TOKEN;
+    else process.env.SOUL_MESH_TOKEN = originalToken;
+    if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = originalNodeEnv;
+  }
+});
+
+
+test('N04 production rejects a valid Bearer when the shared HMAC secret is missing', () => {
+  const originalSecret = process.env.SOUL_MESH_HMAC_SECRET;
+  const originalToken = process.env.SOUL_MESH_TOKEN;
+  const originalNodeEnv = process.env.NODE_ENV;
+  const token = 'n04-valid-bearer-but-no-hmac';
+  process.env.NODE_ENV = 'production';
+  delete process.env.SOUL_MESH_HMAC_SECRET;
+  process.env.SOUL_MESH_TOKEN = token;
+  try {
+    const incoming = new Request('http://127.0.0.1/api/soul-mesh', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    assert.equal(authorizationState(incoming, request()), 'misconfigured');
+  } finally {
+    if (originalSecret === undefined) delete process.env.SOUL_MESH_HMAC_SECRET;
+    else process.env.SOUL_MESH_HMAC_SECRET = originalSecret;
+    if (originalToken === undefined) delete process.env.SOUL_MESH_TOKEN;
+    else process.env.SOUL_MESH_TOKEN = originalToken;
+    if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = originalNodeEnv;
+  }
+});
+
+test('N04 production rejects Bearer-only messages when HMAC is configured', () => {
+  const originalSecret = process.env.SOUL_MESH_HMAC_SECRET;
+  const originalToken = process.env.SOUL_MESH_TOKEN;
+  const originalNodeEnv = process.env.NODE_ENV;
+  const token = 'n04-valid-bearer-without-message-signature';
+  process.env.NODE_ENV = 'production';
+  process.env.SOUL_MESH_HMAC_SECRET = secret;
+  process.env.SOUL_MESH_TOKEN = token;
+  try {
+    const incoming = new Request('http://127.0.0.1/api/soul-mesh', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    assert.equal(authorizationState(incoming, request()), 'unauthorized');
+  } finally {
+    if (originalSecret === undefined) delete process.env.SOUL_MESH_HMAC_SECRET;
+    else process.env.SOUL_MESH_HMAC_SECRET = originalSecret;
+    if (originalToken === undefined) delete process.env.SOUL_MESH_TOKEN;
+    else process.env.SOUL_MESH_TOKEN = originalToken;
+    if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = originalNodeEnv;
+  }
+});
+
+test('N04 accepts valid HMAC authentication without requiring a Bearer header', () => {
+  const originalSecret = process.env.SOUL_MESH_HMAC_SECRET;
+  const originalToken = process.env.SOUL_MESH_TOKEN;
+  const originalNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = 'production';
+  process.env.SOUL_MESH_HMAC_SECRET = secret;
+  delete process.env.SOUL_MESH_TOKEN;
+  const message = request();
+  const nonce = createSoulMeshNonce();
+  const signature = signSoulMeshRequest(message, secret, nonce);
+  try {
+    const incoming = new Request('http://127.0.0.1/api/soul-mesh', {
+      method: 'POST',
+      headers: {
+        'x-soul-mesh-nonce': nonce,
+        'x-soul-mesh-hmac': signature,
+      },
+    });
+    assert.equal(authorizationState(incoming, message), 'hmac');
+  } finally {
     if (originalSecret === undefined) delete process.env.SOUL_MESH_HMAC_SECRET;
     else process.env.SOUL_MESH_HMAC_SECRET = originalSecret;
     if (originalToken === undefined) delete process.env.SOUL_MESH_TOKEN;
