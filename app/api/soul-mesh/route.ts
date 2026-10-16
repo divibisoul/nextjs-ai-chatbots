@@ -64,9 +64,10 @@ function meshResponse(
   const secret = process.env.SOUL_MESH_HMAC_SECRET?.trim();
   if (!secret) return base;
 
-  // Preserve N07's existing legacy response contract. N01-N06 use the
-  // canonical soul-mesh/1 response envelope for interoperable HMAC verification.
-  const signed = message.source === 'N07'
+  // N02 and N07 still require their established legacy response contracts.
+  // N01, N03, N05 and N06 use canonical response signing; N03 also accepts the
+  // legacy generation during its staged migration.
+  const signed = message.source === 'N02' || message.source === 'N07'
     ? signSoulMeshResponse(message, payload, kind, secret)
     : signCanonicalSoulMeshResponse(message, payload, kind, secret);
   return {
