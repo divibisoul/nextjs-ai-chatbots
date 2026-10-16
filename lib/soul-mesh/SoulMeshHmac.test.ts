@@ -182,7 +182,7 @@ test('N04 peer client sends Bearer with HMAC and verifies N05 canonical response
     assert.ok(address && typeof address !== 'string');
     process.env.SOUL_MESH_N05_URL = `http://127.0.0.1:${address.port}`;
 
-    const result = await sendTo('N05', 'mesh.ping', { probe: 'n04-n05-canonical-http' }, 3000, 1);
+    const result = await sendTo('N05', 'mesh.ping', { probe: 'n04-n05-canonical-http' }, 3000);
 
     assert.equal(observed?.authorization, `Bearer ${token}`);
     assert.equal(observed?.requestHmacValid, true);
@@ -233,7 +233,7 @@ test('N04 peer client verifies an N01 legacy response during staged canonical mi
     const address = server.address();
     assert.ok(address && typeof address !== 'string');
     process.env.SOUL_MESH_N01_URL = `http://127.0.0.1:${address.port}`;
-    const result = await sendTo('N01', 'mesh.ping', { probe: 'n04-n01-legacy-compatibility' }, 3000, 1);
+    const result = await sendTo('N01', 'mesh.ping', { probe: 'n04-n01-legacy-compatibility' }, 3000);
     assert.equal(result.source, 'N01');
     assert.equal(result.target, 'N04');
     assert.deepEqual(result.payload, { ok: true, nucleus: 'N01', signer: 'legacy' });
