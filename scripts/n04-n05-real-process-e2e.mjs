@@ -154,7 +154,7 @@ try {
     "import * as peerClientModule from './lib/soul-mesh/peer-client.ts';",
     "const sendTo = peerClientModule.sendTo ?? peerClientModule.default?.sendTo;",
     "if (typeof sendTo !== 'function') throw new Error('N04_SEND_TO_EXPORT_MISSING');",
-    "const r = await sendTo('N05', 'mesh.ping', { probe: 'N04_N05_REAL_PROCESS_PAIR' }, 7000, 1);",
+    "const r = await sendTo('N05', 'mesh.ping', { probe: 'N04_N05_REAL_PROCESS_PAIR' }, 7000);",
     "if (r.kind !== 'response' || r.source !== 'N05' || r.target !== 'N04' || r.payload?.ok !== true || r.payload?.nucleus !== 'N05') throw new Error('N04_TO_N05_CONTRACT_OR_HMAC_FAILED: ' + JSON.stringify(r));",
     "console.log('N04_TO_N05_REAL_PROCESS_E2E_PASS ' + JSON.stringify({source:r.source,target:r.target,capability:r.capability,transport:'HTTP',requestAuthentication:'HMAC-SHA256',responseAuthentication:'HMAC-SHA256',bearerAuthentication:'sent with HMAC',payload:r.payload}));",
   ].join('\n');
