@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createServer } from 'node:http';
+import { sendTo } from './peer-client';
 import {
   createSoulMeshNonce,
   signSoulMeshRequest,
@@ -72,4 +74,45 @@ test('N04 rejects HMAC keys shorter than the shared 32-byte minimum', () => {
     verifySoulMeshRequest(message, weak, createSoulMeshNonce(), '0'.repeat(64)),
     false,
   );
+});
+
+test('N04 peer client rejects an invalid response HMAC on HTTP 200', async () => {
+  const originalUrl = process.env.SOUL_MESH_N05_URL;
+  const originalSecret = process.env.SOUL_MESH_HMAC_SECRET;
+  const originalNodeEnv = process.env.NODE_ENV;
+  const server = createServer(async (request, response) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of request) chunks.push(Buffer.from(chunk));
+    const incoming = JSON.parse(Buffer.concat(chunks).toString('utf8')) as SoulMeshMessage;
+    const signed = signSoulMeshResponse(incoming, { ok: true, nucleus: 'N05' }, 'response', secret);
+    response.writeHead(200, { 'content-type': 'application/json' });
+    response.end(JSON.stringify({ ...signed.message, nonce: signed.nonce, hmac: '0'.repeat(64) }));
+  });
+
+  process.env.NODE_ENV = 'production';
+  process.env.SOUL_MESH_HMAC_SECRET = secret;
+  delete process.env.SOUL_MESH_TOKEN;
+
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', resolve);
+  });
+
+  try {
+    const address = server.address();
+    assert.ok(address && typeof address !== 'string');
+    process.env.SOUL_MESH_N05_URL = `http://127.0.0.1:${address.port}`;
+    await assert.rejects(
+      sendTo('N05', 'mesh.ping', { probe: 'invalid-response-hmac' }),
+      /SOUL_MESH_RESPONSE_HMAC_INVALID/,
+    );
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+    if (originalUrl === undefined) delete process.env.SOUL_MESH_N05_URL;
+    else process.env.SOUL_MESH_N05_URL = originalUrl;
+    if (originalSecret === undefined) delete process.env.SOUL_MESH_HMAC_SECRET;
+    else process.env.SOUL_MESH_HMAC_SECRET = originalSecret;
+    if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = originalNodeEnv;
+  }
 });
