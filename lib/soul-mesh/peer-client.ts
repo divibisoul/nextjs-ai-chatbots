@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { createSoulMeshNonce, signSoulMeshRequest, verifySoulMeshResponse } from './SoulMeshHmac';
+import { createSoulMeshNonce, signSoulMeshRequest, verifyCanonicalSoulMeshResponse, verifySoulMeshResponse } from './SoulMeshHmac';
 import type { SoulMeshMessage } from './SoulMeshProtocol';
 
 export const NUCLEUS_ID = 'N04' as const;
@@ -73,13 +73,13 @@ async function attempt(
       'x-soul-correlation-id': message.correlationId,
     };
 
+    // Bearer and HMAC are complementary when a peer requires both.
+    if (token) headers.authorization = `Bearer ${token}`;
     if (secret && nonce) {
       if (Buffer.byteLength(secret, 'utf8') < 32) throw new Error('SOUL_MESH_HMAC_SECRET_TOO_SHORT');
       headers['x-soul-mesh-nonce'] = nonce;
       headers['x-soul-mesh-hmac'] = signSoulMeshRequest(message, secret, nonce);
-    } else if (token) {
-      headers.authorization = `Bearer ${token}`;
-    } else if (process.env.NODE_ENV === 'production') {
+    } else if (!token && process.env.NODE_ENV === 'production') {
       throw new Error(`SOUL_MESH_AUTH_NOT_CONFIGURED:${message.target}`);
     }
 
@@ -150,13 +150,15 @@ async function dispatchWithRetry(
       assertResponse(attemptMessage, body);
       const secretNow = process.env.SOUL_MESH_HMAC_SECRET?.trim();
       if (secretNow) {
-        const authenticated = verifySoulMeshResponse(
-          attemptMessage,
-          body,
-          secretNow,
-          String(body.nonce ?? ''),
-          String(body.hmac ?? ''),
-        );
+        const authenticated = message.target === 'N07'
+          ? verifySoulMeshResponse(
+              attemptMessage,
+              body,
+              secretNow,
+              String(body.nonce ?? body.meta?.nonce ?? ''),
+              String(body.hmac ?? ''),
+            )
+          : verifyCanonicalSoulMeshResponse(attemptMessage, body, secretNow);
         if (!authenticated) throw new Error('SOUL_MESH_RESPONSE_HMAC_INVALID');
       }
 
