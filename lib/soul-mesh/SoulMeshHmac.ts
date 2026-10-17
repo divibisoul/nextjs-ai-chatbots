@@ -42,6 +42,24 @@ function canonicalLegacyResponse(
   });
 }
 
+function canonicalModernMessage(message: SoulMeshMessage, nonce: string): string {
+  return JSON.stringify({
+    protocol: message.protocol,
+    contractVersion: message.contractVersion,
+    id: message.id,
+    correlationId: message.correlationId,
+    source: message.source,
+    target: message.target,
+    kind: message.kind,
+    capability: message.capability ?? null,
+    payload: message.payload,
+    timestamp: message.timestamp,
+    transport: message.meta?.transport,
+    meta: message.meta ?? null,
+    nonce,
+  });
+}
+
 export function createSoulMeshNonce(): string {
   return randomBytes(24).toString('base64url');
 }
@@ -135,6 +153,62 @@ export function verifySoulMeshResponse(
   if (Math.abs(now - response.timestamp) > MAX_CLOCK_SKEW_MS) return false;
   try {
     return safeEqual(digest(canonicalLegacyResponse(response, nonce), secret), hmacValue);
+  } catch {
+    return false;
+  }
+}
+
+export function signCanonicalSoulMeshResponse(
+  request: SoulMeshMessage,
+  payload: unknown,
+  kind: 'response' | 'error',
+  secret: string,
+): { message: SoulMeshMessage & { nonce: string; hmac: string }; nonce: string; hmac: string } {
+  if (!secret || Buffer.byteLength(secret, 'utf8') < 32) {
+    throw new Error('SOUL_MESH_HMAC_SECRET_TOO_SHORT');
+  }
+  const nonce = createSoulMeshNonce();
+  const base: SoulMeshMessage = {
+    protocol: request.protocol,
+    contractVersion: request.contractVersion,
+    id: randomBytes(16).toString('hex'),
+    correlationId: request.correlationId,
+    source: request.target,
+    target: request.source,
+    kind,
+    capability: request.capability,
+    payload,
+    timestamp: Date.now(),
+    meta: {
+      runtime: 'nextjs-ai-chatbots',
+      transport: 'HTTP',
+      encoding: 'json',
+      version: request.contractVersion,
+      nonce,
+      traceId: request.meta?.traceId ?? request.correlationId,
+    },
+  };
+  const hmac = digest(canonicalModernMessage(base, nonce), secret);
+  const message = { ...base, nonce, hmac };
+  return { message, nonce, hmac };
+}
+
+export function verifyCanonicalSoulMeshResponse(
+  request: SoulMeshMessage,
+  response: SoulMeshMessage & { nonce?: string; hmac?: string },
+  secret: string,
+  now = Date.now(),
+): boolean {
+  const nonce = String(response.nonce ?? response.meta?.nonce ?? '').trim();
+  const hmacValue = String(response.hmac ?? '').trim();
+  if (!secret || Buffer.byteLength(secret, 'utf8') < 32 || !nonce || !hmacValue) return false;
+  if (response.correlationId !== request.correlationId) return false;
+  if (response.source !== request.target || response.target !== request.source) return false;
+  if (response.kind !== 'response' && response.kind !== 'error') return false;
+  if (!Number.isFinite(response.timestamp) || Math.abs(now - response.timestamp) > MAX_CLOCK_SKEW_MS) return false;
+  try {
+    const expected = digest(canonicalModernMessage(response, nonce), secret);
+    return safeEqual(expected, hmacValue);
   } catch {
     return false;
   }

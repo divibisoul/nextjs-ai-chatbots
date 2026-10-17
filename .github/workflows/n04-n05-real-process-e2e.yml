@@ -1,0 +1,89 @@
+name: N04-N05 Real Process E2E
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: n04-n05-real-process-e2e-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  bidirectional-http-hmac:
+    runs-on: ubuntu-22.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: soulmesh
+          POSTGRES_PASSWORD: soulmesh
+          POSTGRES_DB: soulmesh
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U soulmesh -d soulmesh"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    timeout-minutes: 35
+    steps:
+      - name: Checkout N04 candidate
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.3
+      - name: Install N04 dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Checkout pinned N05 runtime
+        uses: actions/checkout@v4
+        with:
+          repository: divibisoul/nextjs-ai-chatbot
+          ref: 6315f2d58e68c65ef5f97406fd0c759dc78333e0
+          path: .integration/n05
+          fetch-depth: 1
+          submodules: false
+          persist-credentials: false
+      - name: Verify exact N05 source pin
+        run: test "$(git -C .integration/n05 rev-parse HEAD)" = "6315f2d58e68c65ef5f97406fd0c759dc78333e0"
+      - name: Install N05 dependencies
+        working-directory: .integration/n05
+        run: pnpm install --frozen-lockfile
+      - name: Generate ephemeral HMAC, bearer and auth secrets
+        shell: bash
+        run: |
+          hmac_secret="$(openssl rand -hex 48)"
+          bearer_token="$(openssl rand -hex 32)"
+          auth_secret="$(openssl rand -hex 32)"
+          echo "::add-mask::$hmac_secret"
+          echo "::add-mask::$bearer_token"
+          echo "::add-mask::$auth_secret"
+          {
+            echo "SOUL_MESH_HMAC_SECRET=$hmac_secret"
+            echo "SOUL_MESH_TOKEN=$bearer_token"
+            echo "AUTH_SECRET=$auth_secret"
+          } >> "$GITHUB_ENV"
+      - name: Build actual N04 production runtime
+        run: pnpm run build
+      - name: Build actual N05 production runtime
+        working-directory: .integration/n05
+        run: pnpm run build
+      - name: Bidirectional N04↔N05 real-process HTTP/HMAC E2E
+        env:
+          SOUL_N04_WORKDIR: ${{ github.workspace }}
+          SOUL_N05_WORKDIR: ${{ github.workspace }}/.integration/n05
+          POSTGRES_URL: postgresql://soulmesh:soulmesh@127.0.0.1:5432/soulmesh
+        run: node scripts/n04-n05-real-process-e2e.mjs

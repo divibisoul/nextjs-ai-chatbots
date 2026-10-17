@@ -8,35 +8,10 @@ import { createN04MeshHandler } from '@/lib/soul-mesh/endpoint';
 import { N04_RESIDENT_AGENT } from '@/lib/soul-mesh/N04ResidentAgent';
 import { describeBrowserUseAdapter } from '@/lib/soul-core/BrowserUseAdapter';
 import {
+  signCanonicalSoulMeshResponse,
   signSoulMeshResponse,
-  verifySoulMeshRequest,
 } from '@/lib/soul-mesh/SoulMeshHmac';
-
-type MeshAuthorization = 'hmac' | 'bearer' | 'unauthorized' | 'misconfigured';
-
-function authorizationState(
-  request: Request,
-  message: SoulMeshMessage,
-): MeshAuthorization {
-  const secret = process.env.SOUL_MESH_HMAC_SECRET?.trim();
-  const nonce = request.headers.get('x-soul-mesh-nonce')?.trim() ?? '';
-  const signature = request.headers.get('x-soul-mesh-hmac')?.trim() ?? '';
-
-  if (secret && nonce && signature) {
-    return verifySoulMeshRequest(message, secret, nonce, signature)
-      ? 'hmac'
-      : 'unauthorized';
-  }
-
-  const token = process.env.SOUL_MESH_TOKEN?.trim();
-  if (!token) {
-    return process.env.NODE_ENV === 'production' ? 'misconfigured' : 'bearer';
-  }
-
-  return request.headers.get('authorization') === `Bearer ${token}`
-    ? 'bearer'
-    : 'unauthorized';
-}
+import { authorizationState } from '@/lib/soul-mesh/MeshRequestAuthorization';
 
 function createMeshDataStream(): UIMessageStreamWriter<ChatMessage> {
   return { write: () => undefined } as unknown as UIMessageStreamWriter<ChatMessage>;
@@ -63,7 +38,12 @@ function meshResponse(
   const secret = process.env.SOUL_MESH_HMAC_SECRET?.trim();
   if (!secret) return base;
 
-  const signed = signSoulMeshResponse(message, payload, kind, secret);
+  // N02 and N07 still require their established legacy response contracts.
+  // N01, N03, N05 and N06 use canonical response signing; N03 also accepts the
+  // legacy generation during its staged migration.
+  const signed = message.source === 'N02' || message.source === 'N07'
+    ? signSoulMeshResponse(message, payload, kind, secret)
+    : signCanonicalSoulMeshResponse(message, payload, kind, secret);
   return {
     ...signed.message,
     nonce: signed.nonce,

@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { createSoulMeshNonce, signSoulMeshRequest, verifySoulMeshResponse } from './SoulMeshHmac';
+import { createSoulMeshNonce, signSoulMeshRequest, verifyCanonicalSoulMeshResponse, verifySoulMeshResponse } from './SoulMeshHmac';
 import type { SoulMeshMessage } from './SoulMeshProtocol';
 
 export const NUCLEUS_ID = 'N04' as const;
@@ -53,6 +53,15 @@ function assertResponse(
   if (candidate.kind !== 'response' && candidate.kind !== 'error') {
     throw new Error('SOUL_MESH_INVALID_RESPONSE_KIND');
   }
+  if (typeof candidate.id !== 'string' || !candidate.id.trim()) {
+    throw new Error('SOUL_MESH_RESPONSE_ID_REQUIRED');
+  }
+  if (candidate.capability !== request.capability) {
+    throw new Error('SOUL_MESH_CAPABILITY_MISMATCH');
+  }
+  if (!Number.isFinite(candidate.timestamp)) {
+    throw new Error('SOUL_MESH_RESPONSE_TIMESTAMP_INVALID');
+  }
 }
 
 async function attempt(
@@ -73,14 +82,17 @@ async function attempt(
       'x-soul-correlation-id': message.correlationId,
     };
 
+    // Bearer and HMAC are complementary when a peer requires both.
+    if (token) headers.authorization = `Bearer ${token}`;
+    if (process.env.NODE_ENV === 'production' && !secret) {
+      throw new Error(`SOUL_MESH_HMAC_NOT_CONFIGURED:${message.target}`);
+    }
     if (secret && nonce) {
       if (Buffer.byteLength(secret, 'utf8') < 32) throw new Error('SOUL_MESH_HMAC_SECRET_TOO_SHORT');
       headers['x-soul-mesh-nonce'] = nonce;
       headers['x-soul-mesh-hmac'] = signSoulMeshRequest(message, secret, nonce);
-    } else if (token) {
-      headers.authorization = `Bearer ${token}`;
-    } else if (process.env.NODE_ENV === 'production') {
-      throw new Error(`SOUL_MESH_AUTH_NOT_CONFIGURED:${message.target}`);
+    } else if (secret && !nonce) {
+      throw new Error('SOUL_MESH_NONCE_REQUIRED');
     }
 
     const response = await fetch(`${url.replace(/\/$/, '')}/api/soul-mesh`, {
@@ -125,8 +137,8 @@ async function dispatchWithRetry(
   const secret = process.env.SOUL_MESH_HMAC_SECRET?.trim();
   const token = process.env.SOUL_MESH_TOKEN?.trim();
   if (secret && Buffer.byteLength(secret, 'utf8') < 32) throw new Error('SOUL_MESH_HMAC_SECRET_TOO_SHORT');
-  if (!secret && !token && process.env.NODE_ENV === 'production') {
-    throw new Error(`SOUL_MESH_AUTH_NOT_CONFIGURED:${message.target}`);
+  if (!secret && process.env.NODE_ENV === 'production') {
+    throw new Error(`SOUL_MESH_HMAC_NOT_CONFIGURED:${message.target}`);
   }
 
   // Only read-only diagnostics are eligible for retries. Application/provider calls
@@ -150,13 +162,22 @@ async function dispatchWithRetry(
       assertResponse(attemptMessage, body);
       const secretNow = process.env.SOUL_MESH_HMAC_SECRET?.trim();
       if (secretNow) {
-        verifySoulMeshResponse(
+        const legacyResponseValid = () => verifySoulMeshResponse(
           attemptMessage,
           body,
           secretNow,
-          String(body.nonce ?? ''),
+          String(body.nonce ?? body.meta?.nonce ?? ''),
           String(body.hmac ?? ''),
         );
+        // N01 and N03 still emit legacy responses on their current server path;
+        // accept either verified format during migration. N02/N07 retain their
+        // dedicated legacy contract, while N05/N06 require canonical responses.
+        const authenticated = message.target === 'N07' || message.target === 'N02'
+          ? legacyResponseValid()
+          : message.target === 'N01' || message.target === 'N03'
+            ? verifyCanonicalSoulMeshResponse(attemptMessage, body, secretNow) || legacyResponseValid()
+            : verifyCanonicalSoulMeshResponse(attemptMessage, body, secretNow);
+        if (!authenticated) throw new Error('SOUL_MESH_RESPONSE_HMAC_INVALID');
       }
 
       // Authenticate the envelope before acting on HTTP status or remote-error details.
