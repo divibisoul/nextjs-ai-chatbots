@@ -1,5 +1,9 @@
 name: N04 dependency lock synchronization
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches:
@@ -8,10 +12,6 @@ on:
 
 permissions:
   contents: write
-
-concurrency:
-  group: n04-lock-sync
-  cancel-in-progress: false
 
 jobs:
   sync:
