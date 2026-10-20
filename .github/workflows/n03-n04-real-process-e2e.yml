@@ -1,5 +1,9 @@
 name: N03-N04 Real Process E2E
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   workflow_call:
   workflow_dispatch:
