@@ -66,8 +66,8 @@ jobs:
           import { readFileSync } from 'node:fs';
           const peerClient = readFileSync('lib/soul-mesh/peer-client.ts', 'utf8');
           const superGPU = readFileSync('lib/soul-mesh/N05SuperGPUMesh.ts', 'utf8');
-          if (!/export async function sendTo\\(/.test(peerClient)) throw new Error('N05_PEER_CLIENT_SENDTO_EXPORT_MISSING');
-          if (!/import \\{ sendTo \\} from '\\.\\/peer-client'/.test(superGPU)) throw new Error('N05_SUPERGPU_BRIDGE_EXPORT_MISMATCH');
+          if (!peerClient.includes('export async function sendTo(')) throw new Error('N05_PEER_CLIENT_SENDTO_EXPORT_MISSING');
+          if (!superGPU.includes("import { sendTo } from './peer-client';")) throw new Error('N05_SUPERGPU_BRIDGE_EXPORT_MISMATCH');
           console.log('N05 canonical peer client export: PASS');
           NODE
       - name: Install N05 dependencies
