@@ -1,0 +1,51 @@
+name: N04 Public Upstream Validation
+
+on:
+  push:
+    branches:
+      - 'audit/ai-nucleus-status-2026-10-25'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: n04-upstream-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser-upstream:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact audit head
+        uses: actions/checkout@v4
+
+      - name: Enable pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.3
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+
+      - name: Install locked dependency graph
+        run: pnpm install --frozen-lockfile
+
+      - name: Test N04 native and adapter contracts
+        run: pnpm run test:n04
+
+      - name: Typecheck application
+        run: pnpm exec tsc --noEmit
+
+      - name: Typecheck canonical Mesh runtime
+        run: pnpm exec tsc -p tsconfig.mesh.json --noEmit
+
+      - name: Test Mesh authentication boundary
+        run: pnpm run test:mesh:hmac
+
+      - name: Build N04 application
+        run: pnpm run build
