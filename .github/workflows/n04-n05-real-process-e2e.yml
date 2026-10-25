@@ -52,13 +52,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: divibisoul/nextjs-ai-chatbot
-          ref: 7e0c3fdd8ce47b22fbf6b6c8faacabf68cd1c697
+          ref: bcfc31536edf670e2c4ef6f0b9c6361fe2cee30d
           path: .integration/n05
           fetch-depth: 1
           submodules: false
           persist-credentials: false
       - name: Verify exact N05 source pin
-        run: test "$(git -C .integration/n05 rev-parse HEAD)" = "7e0c3fdd8ce47b22fbf6b6c8faacabf68cd1c697"
+        run: test "$(git -C .integration/n05 rev-parse HEAD)" = "bcfc31536edf670e2c4ef6f0b9c6361fe2cee30d"
       - name: Verify canonical N05 peer client contract
         working-directory: .integration/n05
         run: |
@@ -68,6 +68,8 @@ jobs:
           const superGPU = readFileSync('lib/soul-mesh/N05SuperGPUMesh.ts', 'utf8');
           if (!peerClient.includes('export async function sendTo(')) throw new Error('N05_PEER_CLIENT_SENDTO_EXPORT_MISSING');
           if (!superGPU.includes("import { sendTo } from './peer-client';")) throw new Error('N05_SUPERGPU_BRIDGE_EXPORT_MISMATCH');
+          const synergy = readFileSync('lib/soul-mesh/N05SynergyOrchestrator.ts', 'utf8');
+          if (!synergy.includes("sendTo(nucleus, 'mesh.describe', {}, timeoutMs)")) throw new Error('N05_SYNERGY_DISCOVERY_MESH_CONTRACT_MISMATCH');
           console.log('N05 canonical peer client export: PASS');
           NODE
       - name: Install N05 dependencies
