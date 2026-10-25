@@ -5,7 +5,9 @@
     "role": "interface conversacional e interação"
   },
   "reason": "functional-complementation",
-  "upstream_capability_sources": [],
+  "upstream_capability_sources": [
+    "browser-use"
+  ],
   "canonical_control_plane": "divibisoul/Orquestrador-",
   "integration": {
     "agent_engineering": "soul.engineer.adapter",
